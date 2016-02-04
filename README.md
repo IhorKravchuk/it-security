@@ -7,7 +7,7 @@ Almost any AWS CloudFormation template are more then long enough. It's OK when y
 
 This kind of resource you need to modify and review a lot, especially if you cloud security professional.  Reading AWS CloudFromation template JSON manually  makes your life miserable and you can easily miss bunch of security problems and holes.
 
-My small aws_secgroup_viewer Python program helps you to quickly review and analyse all security groups in your template.
+My small aws_secgroup_viewer Python program helps you to quickly review and analyze all security groups in your template.
 
 Supports both security group notations used by CloudFormation: firewall rules inside security group or as separate resources linked to group.
 
