@@ -11,4 +11,32 @@ My small aws_secgroup_viewer Python program helps you to quickly review and anal
 
 Supports both security group notations used by CloudFormation: firewall rules inside security group or as separate resources linked to group.
 
+### s3_enc_check.py
+
+You have existing S3 bucket with data uploaded before you enable this policy, you have mixed (encrypted and non encrypted objects) or just doing security audit. In this case you need to scan the bucket to find unencrypted objects. How? quite easy using  few python lines bellow:
+
+```
+import boto3
+import pprint
+import sys
+
+boto3.setup_default_session(profile_name='prod')
+s3 = boto3.resource('s3')
+if len(sys.argv) < 2:
+   print "Missing bucket name"
+   sys.exit
+bucket = s3.Bucket(sys.argv[1])
+for obj in bucket.objects.all():
+   key = s3.Object(bucket.name, obj.key)
+   if key.server_side_encryption is None:
+       print "Not encrypted object found:", key
+       ```
+
+
+
+Nice, Yep, But it will take almost forever to scan bucket that contains thousand or tens of thousand of objects. In this it would be nice to have some counters, progress bar, ETA , summary, etc.. So, vuala:
+
+
+Small program providing all these features mentioned. Feel free to use it or request reasonable changes/modifications.
+
 ---
