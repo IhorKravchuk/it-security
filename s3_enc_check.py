@@ -62,8 +62,10 @@ not_encrypted =[]
 
 for obj in bucket_content:
     key = s3.Object(bucket.name, obj.key)
-    i+=1
-    timer.update(i)
+# Amout of the objects in the bucket could increase during s3 bucket audit casuing timer going out of range
+    if i < total_objects:
+         timer.update(i)
+         i+=1
     if key.server_side_encryption is None:
         not_encrypted.append(key)
 #        print bcolors.WARNING +"Not encrypted object found: " +bcolors.ENDC, key
