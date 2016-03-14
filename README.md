@@ -30,7 +30,7 @@ for obj in bucket.objects.all():
    key = s3.Object(bucket.name, obj.key)
    if key.server_side_encryption is None:
        print "Not encrypted object found:", key
-       ```
+```
 
 
 
