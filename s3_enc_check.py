@@ -9,7 +9,7 @@ import progressbar as pb
 
 __author__ = "Ihor Kravchuk"
 __license__ = "GPL"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __maintainer__ = "Ihor Kravchuk"
 __email__ = "igor@it-security.ca"
 __status__ = "Development"
@@ -28,6 +28,7 @@ class bcolors:
 parser = OptionParser()
 parser.add_option('-B', '--bucket', type='string', dest='bucket_name', help='Please specify bucket name')
 parser.add_option('-P', '--profile', type='string', dest='aws_profile', default="default", help='Please specify AWS CLI profile')
+parser.add_option('-F', '--file', type='string', dest='results_file',  help='Optional: Specify file to save results')
 
 (options, args) = parser.parse_args()
 
@@ -59,7 +60,7 @@ print "Total number of objects in the bucket: ", total_objects
 timer = pb.ProgressBar(widgets=widgets, maxval=total_objects).start()
 i=0
 not_encrypted =[]
-
+# Looking for each object properties
 for obj in bucket_content:
     key = s3.Object(bucket.name, obj.key)
 # Amout of the objects in the bucket could increase during s3 bucket audit casuing timer going out of range
@@ -68,9 +69,22 @@ for obj in bucket_content:
          i+=1
     if key.server_side_encryption is None:
         not_encrypted.append(key)
-#        print bcolors.WARNING +"Not encrypted object found: " +bcolors.ENDC, key
 timer.finish()
-print bcolors.WARNING +"Total number of NON encrypted objects: " +bcolors.ENDC, len(not_encrypted)
-for s3_nc_key in not_encrypted:
-    print bcolors.WARNING +"Not encrypted object found: " +bcolors.ENDC, s3_nc_key
+#  Result summary
 print bcolors.WARNING +"We have found :  ", len(not_encrypted), " NOT encrypted objects"+bcolors.ENDC , " out of total of ",total_objects, " objects in the Bucket"
+
+# Suggesting to save results
+if options.results_file is None:
+    results_file = raw_input('Please, provide file name to save results or hit Enter to ignore: ')
+else:
+    results_file = options.results_file
+
+# Saving or printing results
+if not results_file:
+    for s3_nc_key in not_encrypted:
+        print bcolors.WARNING +"Not encrypted object found: " +bcolors.ENDC, s3_nc_key
+    sys.exit(0)
+else:
+    with open(results_file, 'w+') as f:
+        f.writelines("%s \n" % str(s3_nc_key) for s3_nc_key in not_encrypted)
+    print "Done"
