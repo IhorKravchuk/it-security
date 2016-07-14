@@ -112,7 +112,13 @@ except:
     parser.print_help()
     print "Wrong bucket name or credentials in your profile ", options.aws_profile, " do not grant access to the bucket", bucket_name
     sys.exit(-1)
-print "Total number of objects in the bucket: ", total_objects
+
+if total_objects == 0:
+    print bcolors.OKGREEN + "This bucket is empty " +bcolors.ENDC
+    sys.exit(0)
+else:
+    print "Total number of objects in the bucket: ", total_objects
+
 
 #initialize timer and counters
 timer = pb.ProgressBar(widgets=widgets, maxval=total_objects).start()
