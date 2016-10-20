@@ -40,3 +40,20 @@ Nice, Yep, But it will take almost forever to scan bucket that contains thousand
 Small program providing all these features mentioned. Feel free to use it or request reasonable changes/modifications.
 
 ---
+### Self-Defending Cloud PoC or Amazon CloudWatch Events usage
+
+PoC of the Self-Defending Cloud concept described in this blog post:
+http://security-ingvar-ua.blogspot.ca/2016/10/self-defending-cloud-poc-or-amazon.html
+
+Files needed:
+selfdefence.infosec.vpc.json
+selfdefence_infosec.py
+
+To deploy you need:
+1. selfdefence.infosec.vpc.json - template itself.
+2. selfdefence_infosec.py - Lambda function. You will need to Zip it and upload to the s3 bucket with versioning enabled.
+3. Edit template (selfdefence.infosec.vpc.json) and specify: S3 bucket name in format you.bucket.name.env.cloudform (where env - is your environment name: prod, test, staging, etc) and S3 version for  selfdefence_infosec.zip file.
+4. upload template to the same s3 bucket.
+5. Create a stack using this template end specify corresponding environment name at the creation time.
+
+Enjoy!

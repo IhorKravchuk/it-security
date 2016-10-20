@@ -1,0 +1,107 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS Events Self-Defence PoC",
+  "Parameters" : {
+      "Environment" : {
+        "Description": "Environment to deploy. You can specify staging or prod or dev",
+        "Type": "String",
+        "MinLength" : "2",
+        "MaxLength" : "50"
+      }
+  },
+  "Mappings" : {
+    "Enviroments" : {
+      "regions" : { "staging": "us-east-1",  "prod" : "us-east-1", "dev": "us-east-1", "dr": "eu-central-1" },
+      "SelfDefencelLambdaCodeVer" : { "staging": "S3ObjectVersionOfYourPythonLambdaFunctionZip",  "prod" : "QVw4T", "dev": "jkL", "dr": "ahO" }
+    }
+  },
+  "Resources" : {
+      "SelfDefenceLambda": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": "SelfDefenceLambdaRole",
+      "Properties": {
+         "Handler": "selfdefence_infosec.lambda_handler",
+         "Role": { "Fn::GetAtt" : ["SelfDefenceLambdaRole", "Arn"] },
+         "Code": {
+           "S3Bucket": { "Fn::Join" : ["", ["you.bucket.name", {"Ref": "Environment"} , ".cloudform" ]]},
+           "S3Key": "selfdefence_infosec.zip",
+           "S3ObjectVersion": { "Fn::FindInMap" : [ "Enviroments", "SelfDefencelLambdaCodeVer", {"Ref": "Environment"}]}
+                  },
+         "Runtime": "python2.7",
+         "Timeout": "25"
+  }
+},
+      "SelfDefenceLambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+         "AssumeRolePolicyDocument": {
+           "Version" : "2012-10-17",
+                  "Statement": [ {
+                     "Effect": "Allow",
+                     "Principal": {
+                        "Service": [ "lambda.amazonaws.com" ]
+                     },
+                     "Action": [ "sts:AssumeRole" ]
+                  } ]
+      },
+         "Path": "/infosec/services/",
+         "Policies" : [{ "PolicyName": "SelfDefenceLambda", "PolicyDocument": {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Sid": "SelfDefenceLambda2016",
+               "Effect": "Allow",
+               "Action": [
+                          "sns:Publish",
+                          "logs:CreateLogGroup",
+                          "logs:CreateLogStream",
+                          "logs:PutLogEvents",
+                          "iam:PutUserPolicy"
+                        ],
+              "Resource": "*"
+
+             }  ]
+           }}]
+      }
+      },
+      "SelfDefenceLambdaInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "DependsOn" : ["SelfDefenceLambda", "TerminationProtectionEventRule"],
+      "Properties": {
+          "FunctionName" : { "Fn::GetAtt" : ["SelfDefenceLambda", "Arn"] },
+          "Action": "lambda:InvokeFunction",
+          "Principal": "events.amazonaws.com",
+          "SourceArn": { "Fn::GetAtt" : ["TerminationProtectionEventRule", "Arn"] }
+          }
+        },
+      "TerminationProtectionEventRule": {
+      "Type": "AWS::Events::Rule",
+      "DependsOn" : "SelfDefenceLambda",
+      "Properties": {
+          "Description": "Detecting Modify instance API call to get TerminationProtection Event",
+          "EventPattern": {
+                "detail-type": ["AWS API Call via CloudTrail"],
+                "detail": {
+                    "eventSource": [
+                      "ec2.amazonaws.com"
+                    ],
+                    "eventName": [
+                      "ModifyInstanceAttribute"
+                    ]
+                  }
+                          },
+          "State": "ENABLED",
+          "Targets": [{
+          "Arn": { "Fn::GetAtt": ["SelfDefenceLambda", "Arn"] },
+          "Id": "SelfDefenceV1"
+                    }]
+    }
+  }
+
+
+
+
+
+
+	}
+}
