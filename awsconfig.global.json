@@ -1,0 +1,158 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Enabling and configuring AWS Config service",
+  "Parameters" : {
+    "AWSConfigBucketName" : {
+      "Description": "S3 Bucket name for the AWS Config Logs. Ex. com.ChangeMe.prod.infosec.awsconfig",
+      "Type": "String",
+      "MinLength" : "5",
+      "MaxLength" : "50"
+    }
+  },
+  "Resources": {
+    "s3infosecawsconfig": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "Private",
+        "BucketName": {"Ref": "AWSConfigBucketName"},
+        "VersioningConfiguration": {
+          "Status": "Suspended"
+        }
+      }
+    },
+    "SQSAWSConfig": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+      "MessageRetentionPeriod": "345600",
+      "ReceiveMessageWaitTimeSeconds": "0"
+      }
+    },
+    "SQSAWSConfigPolicy" : {
+   "Type" : "AWS::SQS::QueuePolicy",
+   "DependsOn" : ["SQSAWSConfig", "AWSCloudConfigTopic"],
+   "Properties" : {
+      "PolicyDocument" : {
+         "Id" : "SQSAWSConfigPolicy",
+         "Version" : "2012-10-17",
+         "Statement" : [ {
+            "Sid" : "SQSAWSConfigPolicy2016",
+            "Effect" : "Allow",
+            "Principal" : {
+               "AWS" : "*"
+            },
+            "Action" : [ "sqs:SendMessage" ],
+            "Resource" : {"Fn::GetAtt": ["SQSAWSConfig", "Arn"]},
+            "Condition" : {
+               "ArnEquals": {"aws:SourceArn": { "Ref" : "AWSCloudConfigTopic" } }
+            }
+         } ]
+      },
+      "Queues" : [
+         { "Ref" : "SQSAWSConfig" }
+      ]
+   }
+},
+
+      "AWSCloudConfigTopic": {
+      "Type" : "AWS::SNS::Topic",
+      "DependsOn" : "SQSAWSConfig",
+      "Properties": {
+        "DisplayName" : "AWSCloudConfig",
+        "Subscription": [
+          {
+            "Endpoint": {"Fn::GetAtt": ["SQSAWSConfig", "Arn"]},
+            "Protocol": "sqs"
+          }
+        ],
+        "TopicName" : "AWS-Config-Notification"
+      }
+    },
+
+    "AWSConfigPolicy": {
+    "Type": "AWS::IAM::ManagedPolicy",
+    "DependsOn": ["s3infosecawsconfig", "AWSCloudConfigTopic"],
+    "Properties": {
+    "Description" : "AWS Config Service policy",
+    "Path" : "/infosec/policy/",
+    "PolicyDocument" :{
+      "Version": "2012-10-17",
+      "Statement": [
+        { "Effect": "Allow",
+          "Action": [ "s3:PutObject" ],
+          "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "AWSConfigBucketName"} , "/*" ]] },
+          "Condition":
+          {
+            "StringLike":
+              {
+                "s3:x-amz-acl": "bucket-owner-full-control"
+              }
+          }
+   },
+   {
+     "Effect": "Allow",
+      "Action": [ "s3:GetBucketAcl" ],
+      "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "AWSConfigBucketName"} ]] }
+   },
+        { "Effect": "Allow",
+          "Action": "sns:Publish",
+          "Resource": { "Ref" : "AWSCloudConfigTopic" }
+         }
+      ]
+    }
+      }
+    },
+    "AWSConfigRole": {
+    "Type": "AWS::IAM::Role",
+    "DependsOn":  "AWSConfigPolicy",
+    "Properties": {
+      "AssumeRolePolicyDocument": {
+        "Version" : "2012-10-17",
+               "Statement": [ {
+                  "Effect": "Allow",
+                  "Principal": {
+                     "Service": [ "config.amazonaws.com" ]
+                  },
+                  "Action": [ "sts:AssumeRole" ]
+               } ]
+    },
+      "Path": "/infosec/services/",
+      "ManagedPolicyArns" : [{"Ref": "AWSConfigPolicy"}, "arn:aws:iam::aws:policy/service-role/AWSConfigRole"]
+    }
+    },
+    "AWSConfigRecorder": {
+      "Type": "AWS::Config::ConfigurationRecorder",
+      "DependsOn"  :["AWSConfigRole"],
+      "Properties": {
+        "Name": "AWSConfigRecorder",
+        "RecordingGroup": {
+          "AllSupported": "True",
+          "IncludeGlobalResourceTypes" : "True"
+        },
+        "RoleARN": {"Fn::GetAtt": ["AWSConfigRole", "Arn"]}
+      }
+    },
+    "AWSConfigDeliveryChannel": {
+      "Type": "AWS::Config::DeliveryChannel",
+      "DependsOn" : ["AWSCloudConfigTopic", "s3infosecawsconfig"],
+      "Properties": {
+        "ConfigSnapshotDeliveryProperties": {
+          "DeliveryFrequency": "One_Hour"
+          },
+      "S3BucketName": {"Ref": "s3infosecawsconfig"},
+      "SnsTopicARN": {"Ref": "AWSCloudConfigTopic"}
+  }
+}
+
+
+},
+"Outputs" : {
+  "SQSAWSConfigName" : {
+    "Description": "SQS Queue Name for AWS Config",
+    "Value" : {"Fn::GetAtt": ["SQSAWSConfig", "QueueName"]}
+  },
+  "SQSAWSConfigArn" : {
+    "Description": "SQS AWSConfigl ARN",
+    "Value" : {"Fn::GetAtt": ["SQSAWSConfig", "Arn"]}
+  }
+}
+}

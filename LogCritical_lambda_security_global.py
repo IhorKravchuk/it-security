@@ -1,0 +1,16 @@
+#!/usr/bin/python
+
+import json
+import boto3
+import zlib
+import base64
+
+def lambda_handler(event, context):
+    event_data = event['awslogs']['data']
+    decoded64 = base64.b64decode(event_data)
+    final_decoded = zlib.decompress(decoded64, 16+zlib.MAX_WBITS)
+    print final_decoded
+
+# to test execution on local computer
+#data = {'awslogs': {'data': 'H4sIAAAAAAAAAO1XXU/jRhT9Kys/tRITPF/2TN68ScgGCGXjFNhtVtHYHoNbx/Z6bAKL8t97bZNNBNuqVXmoEFKkKHPP/Thn7hwpD9ZKG6Ou9fy+0FbfGnpzbzkd+b43HlkHVr7OdAnHmGPKGRW2tDkcp/n1uMzrAiK+Dusyqe7RIM3raF6qJB2neaBSJCfvB+OP5/To1Pm0Fz19zEX0I/7VOTthV1dnsqvpV6VWqyftlrvUpa7RWpsKYcCbOjBhmRRVkmdHSVrp0lj9357Mc6nK8MbfQxo0OscDMj2io9F4jGZDf3Cjsmtt/GflEJ4eD2czf+A748Gl9aUdcXSrs6pp9GAlEUxKieBCCOwyRxCbONymDnNsioWgtuTUFtwmlEiOGyBzpOAScmwgUCUgfaVWoCJmLmWMEuzatn2wvRIo/7CwdNPxAtjBYAurv7Bwz+YL62Bh1UaXkwiiQBcigK3gEluMZ0y90tEsT3ULLcokC5NCpZOoi89+8Sbj0+nVh9lwNucnZM69SX+odbHVr01TZdcSvvtqbfqmMv3+/uX0VdcIldDpcD8f4cPn5cIwr7PqcYb9OtswED/R99sh/Yk3mV4es2NvfDFjn66Y67VAAzBQY5Bnlb6rOuqqqsokqCttut+rWHl1ddOoE6pKdxVjlZpOkBA2rbnqIcTaELGxg2wJnzl2+8zpM/F5YW123SbAVJdPdP53Av9Q00Stnmj6Ay3/iXzNOpypVTfY0/TNpqHS7tI8Wf0FZe5+biu1MD+vy7AD6pD01Ep9yzMYuBfmqx1qr2HzfAJ9UYSmm3ZtZvp6u7SqQFlewn0oeL6ku8W2weTci6ISJG5hnPUIwT0snZ5LvrPyrqFTV2ZtkIn+QL+rW3UIOLtH8bvTJKvvDlmPQR4issc5TPstw7074Swd9u4YwMsPeeUXefXTfPoznKH3SbX0dXmry+XF9JBwKEVQgBkUFT17Cb/a7qX+WsMjPVcl8Gwsprv/2yL0dbt4japxaxfbg02bZgrwGj1K9arxCwhkdZruCk6GLR03cGNObBfFhIeIMSKRkDFB2qFSxG7sqojutH5MChzXDmSskHQDiZjWTZIQKJCcCCEp1ZLskubfLWFtvCIZqDR9ZAbrmgDA+5ut2sAD+G9Gh9+M7s3oXqXRTTLY6SzUr9/tki3TF/G8kGjJFJMoFHGAGIkpCmwcoVhIDRamdMTlM8/DkZBYhxwJjDUk6QCpgEvkSBpGNvggCaP/jeeRN89787xX6XnwJynT1et3PNPyfBG7wxGNSSwoUo5QiAWxRIrbGngoFwyNuTwIntsdGCG3FUVOyB2wOxUjEYYKgdk5mjIVxVi+nN192fwJrX19RQYQAAA='}}
+#lambda_handler(data, "")

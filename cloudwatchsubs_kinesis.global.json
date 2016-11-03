@@ -1,0 +1,114 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWSCloudWatch Subscription filters",
+  "Parameters" : {
+      "LogGroupName" : {
+          "Type" : "String",
+          "Default" : "CloudTrail/DefaultLogGroup",
+          "Description" : "Enter CloudWatch Logs log group name. Default is CloudTrail/DefaultLogGroup"
+      },
+      "Environment" : {
+        "Description": "Environment to deploy. You can specify staging or prod or dev",
+        "Type": "String",
+        "MinLength" : "2",
+        "MaxLength" : "50"
+      }
+  },
+  "Mappings" : {
+    "FilterMap" : {
+      "rds-change" : { "all": "($.eventName = CopyDB* || $.eventName = CreateDB* || $.eventName = DeleteDB*)"},
+      "iam-change" : { "all": "(($.eventSource = iam.amazonaws.com) && ($.eventName != Get* && $.eventName != List*))"},
+      "srt-instance" : { "all": "(($.eventName = StopInstances || $.eventName = TerminateInstances || $.eventName = RebootInstances))"},
+      "large-instance" : { "all": "((($.eventName = RunInstances) || ($.eventName = StartInstances)) && (($.requestParameters.instanceType = *.2xlarge) || ($.requestParameters.instanceType = *.4xlarge) || ($.requestParameters.instanceType = *.8xlarge) || ($.requestParameters.instanceType = *.10xlarge)))"},
+      "massive-operations" : { "all": "(($.eventName = StopInstances || $.eventName = TerminateInstances || $.eventName = RebootInstances || $.eventName = RunInstances || $.eventName = StartInstances))"},
+      "massive-terminations" : { "all": "($.eventName = TerminateInstances)"},
+      "detach-force-ebs" : { "all": "($.eventName = DetachVolume && $.requestParameters.force IS TRUE)"},
+      "change-critical-ebs" : { "prod": "(($.eventName = DetachVolume || $.eventName = AttachVolume || $.eventName = CreateVolume || $.eventName = DeleteVolume || $.eventName = EnableVolumeIO || $.eventName = ImportVolume || $.eventName = ModifyVolumeAttribute) && ($.requestParameters.volumeId = vol-dcacc062 || $.requestParameters.volumeId = vol-dcacc063))"},
+      "change-secgroup" : { "all": "($.eventName = AuthorizeSecurityGroupEgress || $.eventName = AuthorizeSecurityGroupIngress || $.eventName = AuthorizeCacheSecurityGroupIngress || $.eventName = AuthorizeClusterSecurityGroupIngress || $.eventName = AuthorizeDBSecurityGroupIngress ||$.eventName = RevokeSecurityGroupEgress || $.eventName = RevokeSecurityGroupIngress || $.eventName = RevokeCacheSecurityGroupIngress || $.eventName = RevokeClusterSecurityGroupIngress || $.eventName = RevokeDBSecurityGroupIngress)"},
+      "create-delete-secgroup" : { "all": "($.eventName = CreateSecurityGroup || $.eventName = CreateCacheSecurityGroup || $.eventName = CreateClusterSecurityGroup || $.eventName = CreateDBSecurityGroup || $.eventName = DeleteSecurityGroup || $.eventName = DeleteCacheSecurityGroup || $.eventName = DeleteClusterSecurityGroup ||  $.eventName = DeleteDBSecurityGroup)"},
+      "secgroup-instance" : { "all": "($.eventName = ModifyInstanceAttribute && $.requestParameters.groupSet.items[0].groupId = * )"},
+      "route-change" : { "all": "($.eventName = AssociateRouteTable || $.eventName = CreateRouteTable || $.eventName = DeleteRouteTable || $.eventName = DisassociateRouteTable || $.eventName = ReplaceRouteTableAssociation)"},
+      "create-delete-vpc" : { "all": "($.eventName = CreateVpc || $.eventName = DeleteVpc)"},
+      "netacl-change" : { "all": "(($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation))"},
+      "cloudtrail-change" : { "all": "($.eventSource = cloudtrail.amazonaws.com && ($.eventName != Get* && $.eventName != List* && $.eventName != Lookup* && $.eventName != Describe*))"},
+      "cloudformation-change" : { "all": "($.eventSource = cloudformation.amazonaws.com && ($.eventName != Validate* && $.eventName != Describe* && $.eventName != List* && $.eventName != Get*))"},
+      "root-access" : { "all": "($.userIdentity.type = Root)"},
+      "unauthorised" : {"all": "(($.eventName = ConsoleLogin && $.errorMessage = Failed*) || $.errorCode = *UnauthorizedOperation || $.errorCode = AccessDenied*)"},
+      "igw-change" : { "all": "($.eventName = AttachInternetGateway || $.eventName = CreateInternetGateway || $.eventName = DeleteInternetGateway || $.eventName = DetachInternetGateway || $.eventName = AttachVpnGateway || $.eventName = CreateVpnGateway || $.eventName = DeleteVpnGateway || $.eventName = DetachVpnGateway)"},
+      "vpc-flow-logs" : { "all": "($.eventName = CreateFlowLogs || $.eventName = DeleteFlowLogs)"},
+      "critical-instance" : { "prod": "($.requestParameters.instanceId = i-a4120d29 || $.requestParameters.instanceId = i-cdf41641 || $.requestParameters.instanceId = i-850bcf09 || $.requestParameters.instanceId = i-4020e4cc )"},
+      "eip-change" : { "all": "($.eventName = AssociateAddress || $.eventName = DisassociateAddress || $.eventName = MoveAddressToVpc || $.eventName = ReleaseAddress )"},
+      "net-access" : { "all": "($.sourceIPAddress != 111.222.3* && $.sourceIPAddress != 111.222.4* && $.sourceIPAddress != cloud* && $.sourceIPAddress != AWS* && $.sourceIPAddress != 11.22.33.00 && $.sourceIPAddress != 11.22.33.01 )"},
+      "test-change" : { "all": "value" },
+      "test-change" : { "staging": "value",  "prod" : "value", "dev": "value" }
+    }
+  },
+  "Resources" : {
+      "SecurityEventStream": {
+        "Type" : "AWS::Kinesis::Stream",
+         "Properties" : {
+            "Name" : "RPSecurityEventStream",
+            "ShardCount" : 1
+             }
+      },
+      "SecurityEventKinesisRole": {
+      "Type": "AWS::IAM::Role",
+      "DependsOn": [ "SecurityEventStream" ],
+      "Properties": {
+         "AssumeRolePolicyDocument": {
+           "Version" : "2012-10-17",
+                  "Statement": [ {
+                     "Effect": "Allow",
+                     "Principal": {
+                        "Service": [ "logs.eu-west-1.amazonaws.com", "logs.us-east-1.amazonaws.com", "logs.eu-central-1.amazonaws.com"  ]
+                     },
+                     "Action": [ "sts:AssumeRole" ]
+                  } ]
+      },
+         "Path": "/infosec/services/",
+         "Policies" : [{ "PolicyName": "SecurityEventKinesisPolicy", "PolicyDocument": {
+           "Version": "2012-10-17",
+           "Statement": [
+             {
+               "Sid": "kinesis2014110",
+               "Effect": "Allow",
+               "Action": [
+                 "Kinesis:*"
+                        ],
+              "Resource": {"Fn::GetAtt" : ["SecurityEventStream", "Arn"]}
+
+             }  ]
+           }}]
+      }
+      },
+      "CriticalChangesSubscriptionFilter": {
+        "Type": "AWS::Logs::SubscriptionFilter",
+        "DependsOn": [ "SecurityEventStream", "SecurityEventKinesisRole" ],
+        "Properties": {
+          "LogGroupName": { "Ref": "LogGroupName"},
+          "FilterPattern":  { "Fn::Join" : ["", [ "{",
+            { "Fn::FindInMap" : [ "FilterMap", "critical-instance", "prod"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "iam-change", "all"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "srt-instance", "all"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "cloudtrail-change", "all"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "root-access", "all"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "net-access", "all"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "detach-force-ebs", "all"]},
+            " || ",
+            { "Fn::FindInMap" : [ "FilterMap", "unauthorised", "all"]},
+            "}"  ]]},
+          "DestinationArn": {"Fn::GetAtt" : ["SecurityEventStream", "Arn"]},
+          "RoleArn": {"Fn::GetAtt" : ["SecurityEventKinesisRole", "Arn"]}
+        }
+      }
+
+
+
+	}
+}

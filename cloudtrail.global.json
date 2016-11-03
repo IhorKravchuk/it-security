@@ -1,0 +1,198 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Enabling and configuring AWS CloudTrail",
+  "Parameters" : {
+    "cloudtrailBucketName" : {
+      "Description": "S3 Bucket name for the CloudTrail Logs. Ex. com.ChangeMe.prod.infosec.cloudtrail",
+      "Type": "String",
+      "MinLength" : "5",
+      "MaxLength" : "50"
+    }
+  },
+  "Resources": {
+    "s3infosecawscloudtrail": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "Private",
+        "BucketName": {"Ref": "cloudtrailBucketName"},
+        "VersioningConfiguration": {
+          "Status": "Suspended"
+        }
+      }
+    },
+    "s3policyrinfosecawscloudtrail": {
+      "Type": "AWS::S3::BucketPolicy",
+      "DependsOn": "s3infosecawscloudtrail",
+      "Properties": {
+        "Bucket": {
+          "Ref": "s3infosecawscloudtrail"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AWSCloudTrailAclCheck20150319",
+              "Effect": "Allow",
+              "Principal": {
+                    "Service": "cloudtrail.amazonaws.com"
+              },
+              "Action": "s3:GetBucketAcl",
+              "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "cloudtrailBucketName"}  ]]}
+            },
+            {
+              "Sid": "AWSCloudTrailWrite20150319",
+              "Effect": "Allow",
+              "Principal": {
+                    "Service": "cloudtrail.amazonaws.com"
+              },
+              "Action": "s3:PutObject",
+              "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref": "cloudtrailBucketName"} , "/*" ]]},
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "SQSCloudTrail": {
+   "Type": "AWS::SQS::Queue",
+   "Properties": {
+      "MessageRetentionPeriod": "345600",
+      "ReceiveMessageWaitTimeSeconds": "0"
+      }
+    },
+    "SQSCloudTrailPolicy" : {
+   "Type" : "AWS::SQS::QueuePolicy",
+   "DependsOn" : ["SQSCloudTrail", "CloudTrailTopic"],
+   "Properties" : {
+      "PolicyDocument" : {
+         "Id" : "SQSCloudTrailPolicy",
+         "Version" : "2012-10-17",
+         "Statement" : [ {
+            "Sid" : "SQSCloudTrailPolicy2016",
+            "Effect" : "Allow",
+            "Principal" : {
+               "AWS" : "*"
+            },
+            "Action" : [ "sqs:SendMessage" ],
+            "Resource" : {"Fn::GetAtt": ["SQSCloudTrail", "Arn"]},
+            "Condition" : {
+               "ArnEquals": {"aws:SourceArn": { "Ref" : "CloudTrailTopic" } }
+            }
+         } ]
+      },
+      "Queues" : [
+         { "Ref" : "SQSCloudTrail" }
+      ]
+   }
+},
+      "CloudTrailTopic": {
+      "Type" : "AWS::SNS::Topic",
+      "DependsOn" : "SQSCloudTrail",
+      "Properties": {
+        "DisplayName" : "CloudTrail",
+        "Subscription": [
+          {
+            "Endpoint": {"Fn::GetAtt": ["SQSCloudTrail", "Arn"]},
+            "Protocol": "sqs"
+          }
+        ],
+        "TopicName" : "CloudTrail-Notification"
+      }
+    },
+   "CloudTrailTopicPolicy" : {
+   "Type" : "AWS::SNS::TopicPolicy",
+   "DependsOn" : "CloudTrailTopic",
+   "Properties" : {
+      "PolicyDocument" :  {
+         "Id" : "CloudTrailTopicPolicy",
+         "Version" : "2012-10-17",
+         "Statement" : [ {
+            "Sid" : "AWSCloudTrailSNSPolicy20160512",
+            "Effect" : "Allow",
+            "Principal" : {
+               "Service": "cloudtrail.amazonaws.com"
+            },
+            "Action" : "sns:Publish",
+            "Resource" : "*"
+         } ]
+      },
+      "Topics" : [ { "Ref" : "CloudTrailTopic" } ]
+   }
+},
+   "CloudTrailLogRole": {
+   "Type": "AWS::IAM::Role",
+   "DependsOn": "CloudTrailLogGroup",
+   "Properties": {
+      "AssumeRolePolicyDocument": {
+        "Version" : "2012-10-17",
+               "Statement": [ {
+                  "Effect": "Allow",
+                  "Principal": {
+                     "Service": [ "cloudtrail.amazonaws.com" ]
+                  },
+                  "Action": [ "sts:AssumeRole" ]
+               } ]
+},
+      "Path": "/infosec/services/",
+      "Policies" : [{ "PolicyName": "CloudTrailLog", "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "AWSCloudTrailCreateLogStream2014110",
+            "Effect": "Allow",
+            "Action": [
+              "logs:CreateLogStream"
+            ],
+           "Resource": {"Fn::GetAtt":["CloudTrailLogGroup","Arn"]}
+
+          },
+          {
+            "Sid": "AWSCloudTrailPutLogEvents20141101",
+            "Effect": "Allow",
+            "Action": [
+              "logs:PutLogEvents"
+            ],
+            "Resource": {"Fn::GetAtt":["CloudTrailLogGroup","Arn"]}
+          }
+        ]
+        }}]
+   }
+},
+    "CloudTrailLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+      }
+  },
+  "trailDefault": {
+    "Type": "AWS::CloudTrail::Trail",
+    "DependsOn" : ["CloudTrailLogRole", "CloudTrailLogGroup", "s3infosecawscloudtrail", "s3policyrinfosecawscloudtrail", "CloudTrailTopic", "CloudTrailTopicPolicy"],
+    "Properties": {
+      "CloudWatchLogsLogGroupArn" : {"Fn::GetAtt":["CloudTrailLogGroup","Arn"]},
+      "CloudWatchLogsRoleArn" : {"Fn::GetAtt":["CloudTrailLogRole","Arn"]},
+      "IncludeGlobalServiceEvents": true,
+      "EnableLogFileValidation": true,
+      "IsMultiRegionTrail": true,
+      "SnsTopicName" : {"Fn::GetAtt": ["CloudTrailTopic", "TopicName"]},
+      "IsLogging": "true",
+      "S3KeyPrefix": "logs",
+      "S3BucketName": {
+        "Ref" : "s3infosecawscloudtrail"
+      }
+    }
+  }
+},
+"Outputs" : {
+  "CloudWatchLogsLogGroup" : {
+    "Description": "Cloudwatch Log Group ARN",
+    "Value" : {"Ref": "CloudTrailLogGroup"}
+  },
+  "SQSCloudTrailArn" : {
+    "Description": "SQS CloudTrail ARN",
+    "Value" : {"Fn::GetAtt": ["SQSCloudTrail", "Arn"]}
+  }
+}
+}
