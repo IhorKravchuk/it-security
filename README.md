@@ -1,7 +1,8 @@
 # it-security
 it-security related scripts and tools
 
----
+## Folder: scripts.aws
+
 ### aws_secgroup_viewer .py
 Almost any AWS CloudFormation template are more then long enough. It's OK when you are dealing with different relatively "static" resources but become a big  problem for something way more dynamic like security group.
 
@@ -11,6 +12,7 @@ My small aws_secgroup_viewer Python program helps you to quickly review and anal
 
 Supports both security group notations used by CloudFormation: firewall rules inside security group or as separate resources linked to group.
 
+----
 ### s3_enc_check.py
 
 You have existing S3 bucket with data uploaded before you enable this policy, you have mixed (encrypted and non encrypted objects) or just doing security audit. In this case you need to scan the bucket to find unencrypted objects. How? quite easy using  few python lines bellow:
@@ -40,6 +42,9 @@ Nice, Yep, But it will take almost forever to scan bucket that contains thousand
 Small program providing all these features mentioned. Feel free to use it or request reasonable changes/modifications.
 
 ---
+
+## Folder: security.global.cf
+
 ### Secure your AWS account using CloudFormation
 
 The very first thing you need to do while building your AWS infrastructure is to enable and configure all AWS account level security features such as: CloudTrail, CloudConfig, CloudWatch, IAM, etc..
@@ -83,9 +88,9 @@ AWS services used by stack: CloudTrail, AWS Config, CloudWatch, CloudWatch Logs 
 11. Create new CloudFormation stack  using parent security template security.global.json and your bucket name (Example: ttps://s3.amazonaws.com/com.it-security.prod.cloudform/security.global.json ),  call it "Security" and specify environment name you going to deploy.
 12. Done!
 
-
-
 ---
+## Folder: selfdefence.PoC.cf
+
 ### Self-Defending Cloud PoC or Amazon CloudWatch Events usage
 
 PoC of the Self-Defending Cloud concept described in this blog post:
