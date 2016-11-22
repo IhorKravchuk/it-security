@@ -68,7 +68,7 @@
             ],
             "Condition": {
                 "Bool": {
-                    "aws:MultiFactorAuthPresent": true
+                    "aws:MultiFactorAuthPresent": "true"
                 }
             }
         },
@@ -150,8 +150,8 @@
               ],
               "Resource": "*",
               "Condition": {
-                  "Null": {
-                      "aws:MultiFactorAuthPresent": true
+                  "BoolIfExists": {
+                      "aws:MultiFactorAuthPresent": "false"
                   }
               }
             },
@@ -205,8 +205,8 @@
             ],
             "Resource": "*",
             "Condition": {
-                "Null": {
-                    "aws:MultiFactorAuthPresent": true
+                "BoolIfExists": {
+                    "aws:MultiFactorAuthPresent": "false"
                 }
             }
         }
