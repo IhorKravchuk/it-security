@@ -43,6 +43,12 @@ Small program providing all these features mentioned. Feel free to use it or req
 
 ---
 
+### aws_enforce_password_policy.py
+
+Small tool to check or/and enforce passsword policy on AWS account. Handy when you need to do this in many AWS accounts.
+
+----
+
 ## Folder: security.global.cf
 
 ### Secure your AWS account using CloudFormation
