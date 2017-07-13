@@ -3,6 +3,7 @@
 import boto3
 import pprint
 import json
+import sys
 from optparse import OptionParser
 
 __author__ = "Ihor Kravchuk"
