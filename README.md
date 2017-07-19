@@ -3,16 +3,39 @@ it-security related scripts and tools
 
 ## Folder: scripts.aws
 
-### aws_secgroup_viewer .py
-Almost any AWS CloudFormation template are more then long enough. It's OK when you are dealing with different relatively "static" resources but become a big  problem for something way more dynamic like security group.
+### aws_test_bucket.py
+Auditing AWS account you have full access to is quite easy - just list the buckets and check theirs ACL, users and buckets' policies via aws cli or web gui.
 
-This kind of resource you need to modify and review a lot, especially if you cloud security professional.  Reading AWS CloudFromation template JSON manually  makes your life miserable and you can easily miss bunch of security problems and holes.
+What about cases when you:
+* have many accounts and buckets (will take forever to audit manually)
+* do not have enough permissions in the target AWS account to check bucket access
+* you do not have permissions at all in this account (pentester mode)
 
-My small aws_secgroup_viewer Python program helps you to quickly review and analyze all security groups in your template.
+To address everything above I've created small tool to do all dirty job for you:
 
-Supports both security group notations used by CloudFormation: firewall rules inside security group or as separate resources linked to group.
+
+```
+$python aws_test_bucket.py --profile prod-read --bucket test.bcuket
+
+  -P AWS_PROFILE, --profile=AWS_PROFILE
+                        Please specify AWS CLI profile
+  -B BUCKET, --bucket=BUCKET
+                        Please provide bucket name
+```
+**Note:** *--profile=AWS_PROFILE - any of yours AWS access profile (from aws cli). This profile DO NOT need to have access to the audited bucket (we need this just to become Authenticated User from AWS point of view )**
+
+
+Based on the bucket access status tool will provide you following responses:
+
+* Bucket: test.bucktet - The specified bucket does not exist
+* Bucket: test.bucktet -  Bucket exists, but Access Denied
+* Bucket: test.bucktet -  Found index.html, most probably S3 static web hosting is enabled
+* Bucket: test.bucktet - Bucket exists, publicly available and no S3 static web hosting, most probably misconfigured!
+
 
 ----
+
+
 ### s3_enc_check.py
 
 You have existing S3 bucket with data uploaded before you enable this policy, you have mixed (encrypted and non encrypted objects) or just doing security audit. In this case you need to scan the bucket to find unencrypted objects. How? quite easy using  few python lines bellow:
@@ -46,6 +69,17 @@ Small program providing all these features mentioned. Feel free to use it or req
 ### aws_enforce_password_policy.py
 
 Small tool to check or/and enforce passsword policy on AWS account. Handy when you need to do this in many AWS accounts.
+
+----
+
+### aws_secgroup_viewer .py
+Almost any AWS CloudFormation template are more then long enough. It's OK when you are dealing with different relatively "static" resources but become a big  problem for something way more dynamic like security group.
+
+This kind of resource you need to modify and review a lot, especially if you cloud security professional.  Reading AWS CloudFromation template JSON manually  makes your life miserable and you can easily miss bunch of security problems and holes.
+
+My small aws_secgroup_viewer Python program helps you to quickly review and analyze all security groups in your template.
+
+Supports both security group notations used by CloudFormation: firewall rules inside security group or as separate resources linked to group.
 
 ----
 
