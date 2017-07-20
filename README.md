@@ -22,7 +22,7 @@ $python aws_test_bucket.py --profile prod-read --bucket test.bcuket
   -B BUCKET, --bucket=BUCKET
                         Please provide bucket name
 ```
-**Note:** *--profile=AWS_PROFILE - any of yours AWS access profile (from aws cli). This profile DO NOT need to have access to the audited bucket (we need this just to become Authenticated User from AWS point of view )**
+**Note:** *--profile=AWS_PROFILE - any of yours AWS access profile (from aws cli). This profile  HAS to NOT have access to the audited bucket (we need this just to become Authenticated User from AWS point of view )**
 
 
 Based on the bucket access status tool will provide you following responses:
