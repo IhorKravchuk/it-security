@@ -43,7 +43,7 @@ def print_bucket_status(bucket, status):
 parser = OptionParser()
 parser.add_option('-P', '--profile', type='string', dest='aws_profile', help='Please specify AWS CLI profile')
 parser.add_option('-B', '--bucket', type='string', dest='bucket', help='Please provide bucket name')
-parser.add_option('-F', '--file', type='string', dest='file', help='Optional: file with bcuket list to check')
+parser.add_option('-F', '--file', type='string', dest='file', help='Optional: file with buckets list to check')
 
 (options, args) = parser.parse_args()
 

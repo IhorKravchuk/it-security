@@ -21,9 +21,11 @@ $python aws_test_bucket.py --profile prod-read --bucket test.bcuket
                         Please specify AWS CLI profile
   -B BUCKET, --bucket=BUCKET
                         Please provide bucket name
+  -F FILE, --file=FILE  Optional: file with buckets list to check
+
 ```
 **Note:** *--profile=AWS_PROFILE - any of yours AWS access profile (from aws cli). This profile  HAS to NOT have access to the audited bucket (we need this just to become Authenticated User from AWS point of view )**
-
+You can specify one bucket to check using --bucket option or file with list of buckets(one bucket name per line) using --file option
 
 Based on the bucket access status tool will provide you following responses:
 
