@@ -15,24 +15,28 @@ To address everything above I've created small tool to do all dirty job for you:
 
 
 ```
-$python aws_test_bucket.py --profile prod-read --bucket test.bcuket
+$python aws_test_bucket.py --profile prod-read --bucket test.bucket
+$python aws_test_bucket.py --profile prod-read --file aws
+$python aws_test_bucket.py --profile prod-read --file buckets.list
 
   -P AWS_PROFILE, --profile=AWS_PROFILE
                         Please specify AWS CLI profile
   -B BUCKET, --bucket=BUCKET
                         Please provide bucket name
-  -F FILE, --file=FILE  Optional: file with buckets list to check
+  -F FILE, --file=FILE  Optional: file with buckets list to check or aws to check all buckets in your account
 
 ```
-**Note:** *--profile=AWS_PROFILE - any of yours AWS access profile (from aws cli). This profile  HAS to NOT have access to the audited bucket (we need this just to become Authenticated User from AWS point of view )**
-You can specify one bucket to check using --bucket option or file with list of buckets(one bucket name per line) using --file option
+**Note:**
+*--profile=AWS_PROFILE - yours AWS access profile (from aws cli). This profile  might or might not have access to the audited bucket (we need this just to become Authenticated User from AWS point of view ).*
 
-Based on the bucket access status tool will provide you following responses:
+If  AWS_PROFILE allows authorized access to the bucket being audited - tool will fetch bucket's ACLs, Policies and S3 Static Web setting and perform authorized audit.
 
-* Bucket: test.bucktet - The specified bucket does not exist
-* Bucket: test.bucktet -  Bucket exists, but Access Denied
-* Bucket: test.bucktet -  Found index.html, most probably S3 static web hosting is enabled
-* Bucket: test.bucktet - Bucket exists, publicly available and no S3 static web hosting, most probably misconfigured!
+If AWS_PROFILE does not allow authorized access - tool will work in pentester mode
+
+You can specify:
+ * one bucket to check using **--bucket** option
+ * file with list of buckets(one bucket name per line) using **--file** option
+ * all buckets in your AWS account (accessible using AWS_PROFILE) using **--file=aws** option
 
 
 ----
