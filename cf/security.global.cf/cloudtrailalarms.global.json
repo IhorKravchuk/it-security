@@ -1,0 +1,632 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS CloudTrail API Activity Alarm Template for CloudWatch Logs",
+  "Parameters" : {
+      "LogGroupName" : {
+          "Type" : "String",
+          "Default" : "CloudTrail/DefaultLogGroup",
+          "Description" : "Enter CloudWatch Logs log group name. Default is CloudTrail/DefaultLogGroup"
+      },
+      "CompanyName" : {
+        "Description": "CompanyName",
+        "Type": "String",
+        "MinLength" : "2",
+        "MaxLength" : "100"
+      },
+      "AccountNickname" : {
+        "Description": "AWS Account nickname(purpose) to deploy",
+        "Type": "String",
+        "MinLength" : "2",
+        "MaxLength" : "100"
+      }
+  },
+  "Mappings" : {
+    "FilterMap" : {
+      "31UnauthAPICalls" : {"all": "{ ($.errorCode = \"*UnauthorizedOperation\") || ($.errorCode = \"AccessDenied*\" ) }"},
+      "32MgmtConsoleNoMFA" : {"all": "{ ($.eventName = \"ConsoleLogin\") && ($.additionalEventData.MFAUsed!= \"Yes\") }"},
+      "33UseOfRootAcct" : { "all": "{ $.userIdentity.type = \"Root\" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != \"AwsServiceEvent\" }"},
+      "34IAMPolicyChanges" : { "all": "{($.eventName=DeleteGroupPolicy)||($.eventName=DeleteRolePolicy)||($.eventName=DeleteUserPolicy)||($.eventName=PutGroupPolicy)||($.eventName=PutRolePolicy)||($.eventName=PutUserPolicy)||($.eventName=CreatePolicy)||($.eventName=DeletePolicy)||($.eventName=CreatePolicyVersion)||($.eventName=DeletePolicyVersion)||($.eventName=AttachRolePolicy)||($.eventName=DetachRolePolicy)||($.eventName=AttachUserPolicy)||($.eventName=DetachUserPolicy)||($.eventName=AttachGroupPolicy)||($.eventName=DetachGroupPolicy)}"},
+      "35CloudTrailConfigChanges" : { "all": "{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }"},
+      "36ConsoleAuthFailures" : {"all": "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failedauthentication\") }" },
+      "37DisableDeleteCMK" : {"all": "{($.eventSource = kms.amazonaws.com) && (($.eventName=DisableKey)||($.eventName=ScheduleKeyDeletion))}"},
+      "38S3BucketPolicyChanges" : {"all": "{ ($.eventSource = s3.amazonaws.com) && (($.eventName = PutBucketAcl) || ($.eventName = PutBucketPolicy) || ($.eventName = PutBucketCors) || ($.eventName = PutBucketLifecycle) || ($.eventName = PutBucketReplication) || ($.eventName = DeleteBucketPolicy) || ($.eventName = DeleteBucketCors) || ($.eventName = DeleteBucketLifecycle) || ($.eventName = DeleteBucketReplication)) }"},
+      "39AWSConfigChanges" : {"all": "{($.eventSource = config.amazonaws.com) && (($.eventName=StopConfigurationRecorder)||($.eventName=DeleteDeliveryChannel)||($.eventName=PutDeliveryChannel)||($.eventName=PutConfigurationRecorder))}"},
+      "310SecGroupChanges" : {"all": "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup)}"},
+      "311NACLChanges" : { "all": "{ ($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation) }"},
+      "312NetworkGatewayChanges" : { "all":  "{ ($.eventName = CreateCustomerGateway) || ($.eventName = DeleteCustomerGateway) || ($.eventName = AttachInternetGateway) || ($.eventName = CreateInternetGateway) || ($.eventName = DeleteInternetGateway) || ($.eventName = DetachInternetGateway) }"},
+      "313RouteTableChanges" : { "all":  "{ ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = ReplaceRoute) || ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DeleteRouteTable) || ($.eventName = DeleteRoute) || ($.eventName = DisassociateRouteTable) }"},
+      "314VPCChanges" : { "all":  "{ ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) || ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) || ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) || ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) || ($.eventName = EnableVpcClassicLink) }"},
+
+      "vpc-flow-logs" : { "all": "{$.eventName = CreateFlowLogs || $.eventName = DeleteFlowLogs}"},
+      "detach-force-ebs" : { "all": "{$.eventName = DetachVolume && $.requestParameters.force IS TRUE}"},
+      "massive-operations" : { "all": "{($.eventName = StopInstances || $.eventName = TerminateInstances || $.eventName = RebootInstances || $.eventName = RunInstances || $.eventName = StartInstances)}"},
+      "massive-terminations" : { "all": "{$.eventName = TerminateInstances}"},
+
+
+      "rds-change" : { "all": "{$.eventName = CopyDB* || $.eventName = CreateDB* || $.eventName = DeleteDB*}"},
+      "srt-instance" : { "all": "{($.eventName = StopInstances || $.eventName = TerminateInstances || $.eventName = RebootInstances)}"},
+      "large-instance" : { "all": "{ (($.eventName = RunInstances) || ($.eventName = StartInstances)) && (($.requestParameters.instanceType = *.2xlarge) || ($.requestParameters.instanceType = *.4xlarge) || ($.requestParameters.instanceType = *.8xlarge) || ($.requestParameters.instanceType = *.10xlarge)) }"},
+      "change-critical-ebs" : { "prod": "{($.eventName = DetachVolume || $.eventName = AttachVolume || $.eventName = CreateVolume || $.eventName = DeleteVolume || $.eventName = EnableVolumeIO || $.eventName = ImportVolume || $.eventName = ModifyVolumeAttribute) && ($.requestParameters.volumeId = vol-youvol1ID || $.requestParameters.volumeId = vol-youvol2ID)}"},
+      "create-delete-secgroup" : { "all": "{$.eventName = CreateSecurityGroup || $.eventName = CreateCacheSecurityGroup || $.eventName = CreateClusterSecurityGroup || $.eventName = CreateDBSecurityGroup || $.eventName = DeleteSecurityGroup || $.eventName = DeleteCacheSecurityGroup || $.eventName = DeleteClusterSecurityGroup ||  $.eventName = DeleteDBSecurityGroup}"},
+      "secgroup-instance" : { "all": "{$.eventName = ModifyInstanceAttribute && $.requestParameters.groupSet.items[0].groupId = * }"},
+      "cloudformation-change" : { "all": "{$.eventSource = cloudformation.amazonaws.com && ($.eventName != Validate* && $.eventName != Describe* && $.eventName != List* && $.eventName != Get*)}"},
+      "critical-instance" : { "prod": "{$.requestParameters.instanceId = i-instance1ID || $.requestParameters.instanceId = i-instance2ID || $.requestParameters.instanceId = i-instance3ID || $.requestParameters.instanceId = i-instance4ID || $.requestParameters.instanceId = i-instance5ID || $.requestParameters.instanceId = i-instance6ID|| $.requestParameters.instanceId = i-instance7ID}"},
+      "eip-change" : { "all": "{$.eventName = AssociateAddress || $.eventName = DisassociateAddress || $.eventName = MoveAddressToVpc || $.eventName = ReleaseAddress }"},
+      "net-access" : { "all": "{$.sourceIPAddress != 111.222.3* && $.sourceIPAddress != 111.222.4* && $.sourceIPAddress != cloud* && $.sourceIPAddress != AWS* && $.sourceIPAddress != 11.22.33.00 && $.sourceIPAddress != 11.22.33.01 }"},
+      "test-change" : { "staging": "value",  "prod" : "value", "dev": "value" }
+    }
+  },
+  "Resources" : {
+    "31UnauthAPICallsMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "31UnauthAPICalls", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "31UnauthAPICallsEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "31UnauthAPICallsAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "31UnauthAPICalls"]]},
+        "AlarmDescription" : "3.01 Ensure a log metric filter and alarm exist for unauthorized API calls",
+        "AlarmActions" : [{"Ref": "InfosecEmailTopic"}],
+        "MetricName" : "31UnauthAPICallsEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+
+    "32MgmtConsoleNoMFAMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "32MgmtConsoleNoMFA", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "32MgmtConsoleNoMFAEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "32MgmtConsoleNoMFAAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "32MgmtConsoleNoMFA"]]},
+        "AlarmDescription" : "3.02 Ensure a log metric filter and alarm exist for Management Console sign-in without MFA ",
+        "AlarmActions" : [{"Ref": "InfosecEmailTopic"}],
+        "MetricName" : "32MgmtConsoleNoMFAEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "33UseOfRootAcctMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "33UseOfRootAcct", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "33UseOfRootAcctEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "33UseOfRootAcctAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "33UseOfRootAcct"]]},
+        "AlarmDescription" : "3.3 Ensure a log metric filter and alarm exist for usage of Root account",
+        "AlarmActions" : [{ "Ref" : "InfosecSMSTopic" }, { "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "33UseOfRootAcctEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "34IAMPolicyChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "34IAMPolicyChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "34IAMPolicyChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "34IAMPolicyChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} ,"34IAMPolicyChanges"]]},
+        "AlarmDescription" : "3.4 Ensure a log metric filter and alarm exist for IAM policy changes",
+        "AlarmActions" : [{ "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "34IAMPolicyChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "35CloudTrailConfigChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "35CloudTrailConfigChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "35CloudTrailConfigChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "35CloudTrailConfigChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "35CloudTrailConfigChanges"]]},
+        "AlarmDescription" : "3.5 Ensure a log metric filter and alarm exist for CloudTrail configuration changes",
+        "AlarmActions" : [{"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "35CloudTrailConfigChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "36ConsoleAuthFailuresMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "36ConsoleAuthFailures", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "36ConsoleAuthFailuresEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "36ConsoleAuthFailuresAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "36ConsoleAuthFailures"]]},
+        "AlarmDescription" : "3.6 Ensure a log metric filter and alarm exist for AWS Management Console authentication failures",
+        "AlarmActions" : [{"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "36ConsoleAuthFailuresEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "37DisableDeleteCMKMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "37DisableDeleteCMK", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "37DisableDeleteCMKEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "37DisableDeleteCMKAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "37DisableDeleteCMK"]]},
+        "AlarmDescription" : "3.7 Ensure a log metric filter and alarm exist for disabling or scheduled deletion of customer created CMKs ",
+        "AlarmActions" : [{"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "37DisableDeleteCMKEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "38S3BucketPolicyChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "38S3BucketPolicyChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "38S3BucketPolicyChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "338S3BucketPolicyChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "38S3BucketPolicyChanges"]]},
+        "AlarmDescription" : "3.8 Ensure a log metric filter and alarm exist for S3 bucket policy changes ",
+        "AlarmActions" : [{"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "38S3BucketPolicyChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "39AWSConfigChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "39AWSConfigChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "39AWSConfigChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "39AWSConfigChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "39AWSConfigChanges"]]},
+        "AlarmDescription" : "3.9 Ensure a log metric filter and alarm exist for AWS Config configuration changes",
+        "AlarmActions" : [{"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }],
+        "MetricName" : "39AWSConfigChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "310SecGroupChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "310SecGroupChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "310SecGroupChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "310SecGroupChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} ,"310SecGroupChanges"]]},
+        "AlarmDescription" : "3.10 Ensure a log metric filter and alarm exist for security group changes",
+        "AlarmActions" : [{"Ref": "InfosecEmailTopic"}],
+        "MetricName" : "310SecGroupChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "311NACLChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "311NACLChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "311NACLChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "311NACLChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "311NACLChanges"]]},
+        "AlarmDescription" : "3.11 Ensure a log metric filter and alarm exist for changes to Network Access Control Lists (NACL) ",
+        "AlarmActions" : [{"Ref": "InfosecEmailTopic"}, {"Ref": "DevOpsEmailTopic"}],
+        "MetricName" : "311NACLChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "312NetworkGatewayChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "312NetworkGatewayChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "312NetworkGatewayChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "312NetworkGatewayChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "312NetworkGatewayChanges"]]},
+        "AlarmDescription" : "3.12 Ensure a log metric filter and alarm exist for changes to network gateways",
+        "AlarmActions" : [{"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }, {"Ref": "DevOpsSMSTopic"}],
+        "MetricName" : "312NetworkGatewayChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "313RouteTableChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "313RouteTableChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "313RouteTableChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "313RouteTableChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "313RouteTableChanges"]]},
+        "AlarmDescription" : "3.13 Ensure a log metric filter and alarm exist for route table changes ",
+        "AlarmActions" : [{"Ref": "InfosecEmailTopic"}, {"Ref": "DevOpsEmailTopic"}],
+        "MetricName" : "313RouteTableChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+    "314VPCChangesMetricFilter": {
+      "Type": "AWS::Logs::MetricFilter",
+      "Properties": {
+        "LogGroupName": { "Ref": "LogGroupName"},
+        "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "314VPCChanges", "all"]},
+        "MetricTransformations": [
+          {
+            "MetricNamespace": "CloudTrailMetrics",
+            "MetricName": "314VPCChangesEventCount",
+            "MetricValue": "1"
+          }
+        ]
+      }
+    },
+    "314VPCChangesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "314VPCChanges"]]},
+        "AlarmDescription" : "3.14 Ensure a log metric filter and alarm exist for VPC changes",
+        "AlarmActions" : [{"Ref": "InfosecEmailTopic"}, {"Ref": "DevOpsEmailTopic"}],
+        "MetricName" : "314VPCChangesEventCount",
+        "Namespace" : "CloudTrailMetrics",
+        "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+        "EvaluationPeriods" : "1",
+        "Period" : "300",
+        "Statistic" : "Sum",
+        "Threshold" : "1"
+      }
+    },
+
+
+
+
+      "MassiveOptMetricFilter": {
+        "Type": "AWS::Logs::MetricFilter",
+        "Properties": {
+          "LogGroupName": { "Ref": "LogGroupName"},
+          "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "massive-operations", "all"]},
+          "MetricTransformations": [
+            {
+              "MetricNamespace": "CloudTrailMetrics",
+              "MetricName": "MassiveOptEventCount",
+              "MetricValue": "1"
+            }
+          ]
+        }
+      },
+      "MassiveOptAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} ,"MassiveOperations"]]},
+          "AlarmDescription" : "Alarms when a large number of operations are performed in small time period",
+          "AlarmActions" : [ {"Ref": "DevOpsSMSTopic"}, {"Ref": "InfosecSMSTopic"}, { "Ref" : "InfosecEmailTopic" }],
+          "MetricName" : "MassiveOptEventCount",
+          "Namespace" : "CloudTrailMetrics",
+          "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+          "EvaluationPeriods" : "1",
+          "Period" : "300",
+          "Statistic" : "Sum",
+          "Threshold" : "10"
+        }
+      },
+      "MassiveTerminationMetricFilter": {
+        "Type": "AWS::Logs::MetricFilter",
+        "Properties": {
+          "LogGroupName": { "Ref": "LogGroupName"},
+          "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "massive-terminations", "all"]},
+          "MetricTransformations": [
+            {
+              "MetricNamespace": "CloudTrailMetrics",
+              "MetricName": "MassiveTerminationEventCount",
+              "MetricValue": "1"
+            }
+          ]
+        }
+      },
+      "MassiveTerminationAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} ,"MassiveTermination"]]},
+          "AlarmDescription" : "Alarms when a large number of Instances are being terminated ",
+          "AlarmActions" : [{"Ref": "InfosecSMSTopic" }, { "Ref" : "InfosecEmailTopic" }, {"Ref": "DevOpsSMSTopic"}],
+          "MetricName" : "MassiveTerminationEventCount",
+          "Namespace" : "CloudTrailMetrics",
+          "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+          "EvaluationPeriods" : "1",
+          "Period" : "60",
+          "Statistic" : "Sum",
+          "Threshold" : "10"
+        }
+      },
+
+      "EBSForceDetachMetricFilter": {
+        "Type": "AWS::Logs::MetricFilter",
+        "Properties": {
+          "LogGroupName": { "Ref": "LogGroupName"},
+          "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "detach-force-ebs", "all"]},
+          "MetricTransformations": [
+            {
+              "MetricNamespace": "CloudTrailMetrics",
+              "MetricName": "VolumeForceDetachEventCount",
+              "MetricValue": "1"
+            }
+          ]
+        }
+      },
+      "EBSForceDetachAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} ,"EBSForceDetach"]]},
+          "AlarmDescription" : "Alarms when a volume is force detached from an Instance",
+          "AlarmActions" : [{"Ref": "DevOpsEmailTopic" }],
+          "MetricName" : "VolumeForceDetachEventCount",
+          "Namespace" : "CloudTrailMetrics",
+          "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+          "EvaluationPeriods" : "1",
+          "Period" : "300",
+          "Statistic" : "Sum",
+          "Threshold" : "1"
+        }
+      },
+
+      "VPCTrafficFlowCreateDelMetricFilter": {
+        "Type": "AWS::Logs::MetricFilter",
+        "Properties": {
+          "LogGroupName": { "Ref": "LogGroupName"},
+          "FilterPattern": { "Fn::FindInMap" : [ "FilterMap", "vpc-flow-logs", "all"]},
+          "MetricTransformations": [
+            {
+              "MetricNamespace": "CloudTrailMetrics",
+              "MetricName": "VPCTrafficFlowEventCount",
+              "MetricValue": "1"
+            }
+          ]
+        }
+      },
+      "VPCTrafficFlowCreateDelAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName" : { "Fn::Join" : ["--", [ {"Ref": "CompanyName"} , {"Ref": "AccountNickname"} , "VPCTrafficFlowCreateDel"]]},
+          "AlarmDescription" : "Alarms when VPC traffic flow is created or deleted",
+          "AlarmActions" : [{"Ref": "InfosecEmailTopic"}],
+          "MetricName" : "VPCTrafficFlowEventCount",
+          "Namespace" : "CloudTrailMetrics",
+          "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+          "EvaluationPeriods" : "1",
+          "Period" : "300",
+          "Statistic" : "Sum",
+          "Threshold" : "1"
+        }
+      },
+
+
+      "InfosecEmailTopic": {
+        "Type" : "AWS::SNS::Topic",
+        "Properties": {
+          "DisplayName" : "Infosec-Email",
+          "Subscription": [
+            {
+              "Endpoint": "infosec.notifications+AWS@it-security.ca",
+              "Protocol": "email"
+            }
+          ],
+          "TopicName" : "Infosec-Email-Notification"
+        }
+      },
+      "DevOpsEmailTopic": {
+        "Type" : "AWS::SNS::Topic",
+        "Properties": {
+          "DisplayName" : "DevOps-Email",
+          "Subscription": [
+            {
+              "Endpoint": "infosec.notifications+AWS@it-security.ca",
+              "Protocol": "email"
+            }
+          ],
+          "TopicName" : "DevOps-Email-Notification"
+        }
+      },
+      "InfosecSMSTopic": {
+        "Type" : "AWS::SNS::Topic",
+        "Properties": {
+          "DisplayName" : "Infosec-SMS",
+          "TopicName" : "Infosec-SMS-Critical"
+        }
+      },
+      "DevOpsSMSTopic": {
+        "Type" : "AWS::SNS::Topic",
+        "Properties": {
+          "DisplayName" : "DevOps-SMS",
+          "TopicName" : "DevOps-SMS-Critical"
+        }
+      }
+	}
+}

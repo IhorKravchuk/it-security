@@ -1,0 +1,74 @@
+# InfosecStack Version 1.28
+# Desc:  Done CIS benchmark monitoring options
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Enabling and configuring Global AWS Secutiy settings
+Parameters:
+  AccountNickname:
+    Description: 'AWS Account nickname(purpose) to deploy. '
+    Type: String
+  CompanyName:
+    Description: CompanyName.
+    Type: String
+  MasterAccount:
+    Description: AWS Organization Master Account.
+    Type: String
+Resources:
+# Enabling and configuring Global CloudTrail
+  CloudTrailGlobal:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['', ['https://s3.amazonaws.com/com.', !Ref 'CompanyName',
+          ., !Ref 'AccountNickname', .cloudform/cloudtrail.global.json]]
+      Parameters:
+        cloudtrailBucketName: !Join ['', [com., !Ref 'CompanyName', ., !Ref 'AccountNickname',
+            .infosec.cloudtrail]]
+      TimeoutInMinutes: '60'
+
+# Enabling AWS config service TBD: More configuration rules to add
+  AWSConfigGlobal:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['', ['https://s3.amazonaws.com/com.', !Ref 'CompanyName',
+          ., !Ref 'AccountNickname', .cloudform/awsconfig.global.json]]
+      Parameters:
+        AWSConfigBucketName: !Join ['', [com., !Ref 'CompanyName', ., !Ref 'AccountNickname',
+            .infosec.awsconfig]]
+      TimeoutInMinutes: '60'
+
+# Creating Filter Patterns for CloudWatchLogs, CloudWatch metrics , correspoing alalrms and sns notifications
+  CloudWarchAlarms:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Join ['', ['https://s3.amazonaws.com/com.', !Ref 'CompanyName',
+          ., !Ref 'AccountNickname', .cloudform/cloudtrailalarms.global.json]]
+      Parameters:
+        LogGroupName: !GetAtt 'CloudTrailGlobal.Outputs.CloudWatchLogsLogGroup'
+        CompanyName: !Ref 'CompanyName'
+        AccountNickname: !Ref 'AccountNickname'
+      TimeoutInMinutes: '60'
+
+# Creating BestPractice Security Policies, Groups and Security-specific users
+  IAM:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - AWSConfigGlobal
+      - CloudTrailGlobal
+    Properties:
+      TemplateURL: !Join ['', ['https://s3.amazonaws.com/com.', !Ref 'CompanyName',
+          ., !Ref 'AccountNickname', .cloudform/iam.global.json]]
+      Parameters:
+        AccountNickname: !Ref 'AccountNickname'
+        MasterAccount: !Ref 'MasterAccount'
+        SQSCloudTrailArn: !GetAtt 'CloudTrailGlobal.Outputs.SQSCloudTrailArn'
+        SQSAWSConfigArn: !GetAtt 'AWSConfigGlobal.Outputs.SQSAWSConfigArn'
+      TimeoutInMinutes: '60'
+
+
+Outputs:
+  CloudTrailGlobalRef:
+    Value: !Ref 'CloudTrailGlobal'
+  CloudWatchLogsLogGroupARN:
+    Value: !GetAtt 'CloudTrailGlobal.Outputs.CloudWatchLogsLogGroup'
+  SQSAWSConfigName:
+    Value: !GetAtt 'AWSConfigGlobal.Outputs.SQSAWSConfigName'

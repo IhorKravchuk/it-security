@@ -89,50 +89,55 @@ Supports both security group notations used by CloudFormation: firewall rules in
 
 ----
 
-## Folder: security.global.cf
+## Folders: tf and cf
 
-### Secure your AWS account using CloudFormation
+More details described in these blog posts
+
+**Updated** version with Terraform integration: http://blog.it-security.ca/2018/01/secure-your-aws-account-using-terrafrom.html
+
+Initial version: http://blog.it-security.ca/2016/11/secure-your-aws-account-using.html
+
+
+### Secure your AWS account using Terraform and  CloudFormation
 
 The very first thing you need to do while building your AWS infrastructure is to enable and configure all AWS account level security features such as: CloudTrail, CloudConfig, CloudWatch, IAM, etc..
 To do this, you can use mine Amazon AWS Account level security checklist and how-to or any other source.
-To avoid manual steps and to be align with SecuityAsCode concept, I use set of CloudFormation templates, simplified version of which I would like to share:
+To avoid manual steps and to be align with SecuityAsCode concept, I use Terraform and set of CloudFormation templates, simplified version of which described below. Now, it's
+1. integrated with Terraform (use terraform templates in the folder **tf**)
+2. creates prerequisites for Splunk integration (User, key, SNS, and SQS)
+3. configures cross account access (for multiaccounts organizations, adding ITOrganizationAccountAccessRole with MFA enforced)
+4. implements Section 3 (Monitoring) of the **CIS Amazon Web Services Foundations benchmark.**
+5. configures CloudTrail according to the new best practices (KMS encryption, validation etc)
+6. Configure basic set of the CloudConfig rules to monitor best practices
 
 
-#### Global Security stack template structure: More details described in this blog post:
-http://security-ingvar-ua.blogspot.ca/2016/11/secure-your-aws-account-using.html
+#### Global Security stack template structure:
 
-**security.global.json** - parent template for all nested templates to link them together and control dependency between nested stacks.
+**security.global.yaml** - parent template for all nested templates to link them together and control dependency between nested stacks.
 
 **cloudtrail.clobal.json** - nested template for Global configuration of the CloudTrail
 
 **cloudtrailalarms.global.json** - nested template for Global CloudWatch Logs alarms and security metrics creation. Uses FilterMap to create different security-related filters for ClouTrail LogGroup, corresponding metrics and notifications for suspicious or dangerous events. You can customise filter per environment basis.
 
-**awsconfig.global.json** - nested template for Global AWS Config Service configuration.
-
-**cloudwatchsubs.global.json** - nested template for configuring AWS CloudWatch Subscription Filter to extract and analyse most severe CloudTrail events using custom Lambda function.
+**awsconfig.global.json** - nested template for Global AWS Config Service configuration and config rules.
 
 **iam.global.json** - nested template for IAM Global configuration.
 
-**cloudwatchsubs_kinesis.global.json** - PoC template (not linked as nested to the security.global.json)  for configuring AWS CloudWatch Subscription Filter to send most severe CloudTrail events to AWS Kinesis stream using subscription filter similar to the cloudwatchsubs.global.json
 
 #### Supported features:
-Environments and regions: Stack supports unlimited amount of environments with 4 environments predefined (staging, dev, prod, and dr) and use 1 account and 1 region per environment concept to reduce blast radius (if account become compromised)
-AWS services used by stack: CloudTrail, AWS Config, CloudWatch, CloudWatch Logs and Events, IAM,  Lambda, Kinesis.
+Environments and regions: Stack designed to cover all AWS account, but to be deployed in only one region. To deploy specify account nick-name and company name (these will be used to create unique s3 buckets names )
+AWS services used by stack: CloudTrail, AWS Config, CloudWatch, CloudWatch Logs and Events, IAM.
 
 #### To deploy:
 
-1. Create bucket using following naming convention: com.ChangeMe.EnviromentName.cloudform, replacing ChangeMe and EnviromentName with your value to make it look like this: com.it-security.prod.cloudform
-2. Enable bucket versioning
-3. in the templates  security.global.json and cloudwatchsubs.global.json replace "ChangeMe" with name used in the bucket creation.
-4. In the template cloudtrailalarms.global.json modify SNS endpoints for email notification infosec@ChangeMe.com and devops@ChangeMe.com; Add endpoints with mobile phone numbers for SMS notification to appropriate SNS topics if needed.
-5. Modify iam.global.json template to adrress you SQL DataBase bucket location (com-ChangeMe-", {"Ref": "Environment"} , "-sqldb/)  and modify any permission if need according to your organisation structure, roles, responsibilities and services.
-6. Modify FilterMap in cloudtrailalarms.global.json and cloudwatchsubs.global.json templates make filters work for your infrastructure (Critical Instance IDs, Critical Volume IDs, you ofiice IP range, you NAT gateways, etc)
-7. Zip example Lambda function LogCritical_lambda_security_global.py like LogCritical_lambda_security_global.zip
-8. Upload this function into S3 bucket created at step 1 and copy object version (GUI- show version -object properties ) and insert into cloudwatchsubs.global.json template into "LogCriticalLambdaCodeVer" mapping at the appropriate environment (prod, staging ..)
-9. Modify "regions" Environments mapping in the iam.global.json, and cloudwatchsubs.global.json templates to specify correct AWS region you are using for the deployment.
-10. Upload all .global.json templates into S3 bucket created at step 1.
-11. Create new CloudFormation stack  using parent security template security.global.json and your bucket name (Example: ttps://s3.amazonaws.com/com.it-security.prod.cloudform/security.global.json ),  call it "Security" and specify environment name you going to deploy.
-12. Done!
+1. Get code from my git repo.
+2. Update terraform.tfvars specifying: your AWS profile name (configured for aws cli using aws configure --profile profile_name); name for the environment (prod, test, dev ..) ; company(or division) name; region and AWS master account ID.
+3. terraform init to get aws provider downloaded by terraform
+4. terraform plan
+5. terraform apply
+
+
+
 
 ---
 ## Folder: selfdefence.PoC.cf

@@ -6,7 +6,7 @@
       "Description": "S3 Bucket name for the AWS Config Logs. Ex. com.ChangeMe.prod.infosec.awsconfig",
       "Type": "String",
       "MinLength" : "5",
-      "MaxLength" : "50"
+      "MaxLength" : "100"
     }
   },
   "Resources": {
@@ -23,6 +23,7 @@
     "SQSAWSConfig": {
    "Type": "AWS::SQS::Queue",
    "Properties": {
+      "QueueName" : "AWSConfigQueue",
       "MessageRetentionPeriod": "345600",
       "ReceiveMessageWaitTimeSeconds": "0"
       }
@@ -57,6 +58,7 @@
       "Type" : "AWS::SNS::Topic",
       "DependsOn" : "SQSAWSConfig",
       "Properties": {
+        "TopicName" : "AWSCloudConfigTopic",
         "DisplayName" : "AWSCloudConfig",
         "Subscription": [
           {
@@ -72,6 +74,7 @@
     "Type": "AWS::IAM::ManagedPolicy",
     "DependsOn": ["s3infosecawsconfig", "AWSCloudConfigTopic"],
     "Properties": {
+    "ManagedPolicyName" : "AWSConfigPolicy",
     "Description" : "AWS Config Service policy",
     "Path" : "/infosec/policy/",
     "PolicyDocument" :{
@@ -105,6 +108,7 @@
     "Type": "AWS::IAM::Role",
     "DependsOn":  "AWSConfigPolicy",
     "Properties": {
+      "RoleName" : "AWSConfigRole",
       "AssumeRolePolicyDocument": {
         "Version" : "2012-10-17",
                "Statement": [ {
@@ -135,15 +139,129 @@
       "Type": "AWS::Config::DeliveryChannel",
       "DependsOn" : ["AWSCloudConfigTopic", "s3infosecawsconfig"],
       "Properties": {
+        "Name" : "AWSConfigDeliveryChannel",
         "ConfigSnapshotDeliveryProperties": {
           "DeliveryFrequency": "One_Hour"
           },
       "S3BucketName": {"Ref": "s3infosecawsconfig"},
       "SnsTopicARN": {"Ref": "AWSCloudConfigTopic"}
   }
-}
+},
 
+"IAMUsersWithoutPolicy": {
+  "Type": "AWS::Config::ConfigRule",
+  "DependsOn" : "AWSConfigRecorder",
+  "Properties": {
+    "ConfigRuleName": "iam-user-no-policies-check",
+    "Description": "Checks that none of your IAM users have policies attached. IAM users must inherit permissions from IAM groups or roles.",
+    "InputParameters": {},
+    "Scope": {
+      "ComplianceResourceTypes": [
+        "AWS::IAM::User"
+      ]
+    },
+    "Source": {
+      "Owner": "AWS",
+      "SourceIdentifier": "IAM_USER_NO_POLICIES_CHECK"
+    }
+  }
+},
 
+"IAMRootMFA": {
+      "Type": "AWS::Config::ConfigRule",
+      "DependsOn" : "AWSConfigRecorder",
+      "Properties": {
+        "ConfigRuleName": "root-account-mfa-enabled",
+        "Description": "Checks whether the root user of your AWS account requires multi-factor authentication for console sign-in.",
+        "InputParameters": {},
+        "Scope": {},
+        "Source": {
+          "Owner": "AWS",
+          "SourceIdentifier": "ROOT_ACCOUNT_MFA_ENABLED"
+        },
+        "MaximumExecutionFrequency": "One_Hour"
+      }
+    },
+
+"S3PublicRead": {
+      "Type": "AWS::Config::ConfigRule",
+      "DependsOn" : "AWSConfigRecorder",
+      "Properties": {
+        "ConfigRuleName": "s3-bucket-public-read-prohibited",
+        "Description": "Checks that your S3 buckets do not allow public read access. If an S3 bucket policy or bucket ACL allows public read access, the bucket is noncompliant.",
+        "InputParameters": {},
+        "Scope": {
+          "ComplianceResourceTypes": [
+            "AWS::S3::Bucket"
+          ]
+        },
+        "Source": {
+          "Owner": "AWS",
+          "SourceIdentifier": "S3_BUCKET_PUBLIC_READ_PROHIBITED"
+        }
+      }
+    },
+
+"S3PublicWrite": {
+      "Type": "AWS::Config::ConfigRule",
+      "DependsOn" : "AWSConfigRecorder",
+      "Properties": {
+        "ConfigRuleName": "s3-bucket-public-write-prohibited",
+        "Description": "Checks that your S3 buckets do not allow public write access. If an S3 bucket policy or bucket ACL allows public write access, the bucket is noncompliant.",
+        "InputParameters": {},
+        "Scope": {
+          "ComplianceResourceTypes": [
+            "AWS::S3::Bucket"
+          ]
+        },
+        "Source": {
+          "Owner": "AWS",
+          "SourceIdentifier": "S3_BUCKET_PUBLIC_WRITE_PROHIBITED"
+        }
+      }
+    },
+
+"NetRestrictSSH": {
+      "Type": "AWS::Config::ConfigRule",
+      "DependsOn" : "AWSConfigRecorder",
+      "Properties": {
+        "ConfigRuleName": "restricted-ssh",
+        "Description": "Checks whether security groups that are in use disallow unrestricted incoming SSH traffic.",
+        "InputParameters": {},
+        "Scope": {
+          "ComplianceResourceTypes": [
+            "AWS::EC2::SecurityGroup"
+          ]
+        },
+        "Source": {
+          "Owner": "AWS",
+          "SourceIdentifier": "INCOMING_SSH_DISABLED"
+        }
+      }
+    },
+    "AccountPasswordPolicy": {
+      "Type": "AWS::Config::ConfigRule",
+      "DependsOn" : "AWSConfigRecorder",
+      "Properties": {
+        "ConfigRuleName": "iam-password-policy",
+        "Description": "Checks whether the account password policy for IAM users meets the specified requirements.",
+        "InputParameters": {
+          "RequireUppercaseCharacters": "true",
+          "RequireLowercaseCharacters": "true",
+          "RequireSymbols": "true",
+          "RequireNumbers": "true",
+          "MinimumPasswordLength": "14",
+          "PasswordReusePrevention": "24",
+          "MaxPasswordAge": "90"
+        },
+        "Scope": {},
+        "Source": {
+          "Owner": "AWS",
+          "SourceIdentifier": "IAM_PASSWORD_POLICY"
+        },
+        "MaximumExecutionFrequency": "One_Hour"
+      }
+    }
 },
 "Outputs" : {
   "SQSAWSConfigName" : {

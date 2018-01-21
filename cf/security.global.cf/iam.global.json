@@ -2,11 +2,11 @@
   "AWSTemplateFormatVersion": "2010-09-09",
   "Description": "Creating Groups and Security Policies for IAM",
   "Parameters" : {
-    "Environment" : {
-      "Description": "Environment to deploy. You can specify staging or prod or dev",
+    "AccountNickname" : {
+      "Description": "AWS Account nickname(purpose) to deploy",
       "Type": "String",
       "MinLength" : "2",
-      "MaxLength" : "50"
+      "MaxLength" : "100"
     },
     "SQSCloudTrailArn" : {
       "Description": "SQS Queue for CloudTrail events Arn",
@@ -19,10 +19,13 @@
       "Type": "String",
       "MinLength" : "2",
       "MaxLength" : "500"
+    },
+    "MasterAccount" : {
+      "Description": "AWS Organization Master Account",
+      "Type": "String",
+      "MinLength" : "2",
+      "MaxLength" : "100"
     }
-  },
-  "Conditions" : {
-    "CreateDRResources" : {"Fn::Equals" : [{"Ref" : "Environment"}, "dr"]}
   },
 
   "Mappings" : {
@@ -34,6 +37,7 @@
     "UserSelfServicePolicy": {
     "Type": "AWS::IAM::ManagedPolicy",
     "Properties": {
+    "ManagedPolicyName" : "UserSelfServicePolicy",
     "Description" : "Self ManagedPolicy for all users",
     "Path" : "/infosec/policy/",
     "PolicyDocument" :{
@@ -89,15 +93,16 @@
     },
 
     "ProtectProdEnviroment": {
-      "Type": "AWS::IAM::ManagedPolicy",
+    "Type": "AWS::IAM::ManagedPolicy",
       "Properties": {
+        "ManagedPolicyName" : "LimitDistructiveActions",
         "Description" : "Block some modify/delete actions on core production components/functions.",
         "Path" : "/infosec/policy/",
         "PolicyDocument" :{
           "Version": "2012-10-17",
           "Statement": [
             {
-              "Sid": "EnforceProdInfrastructureProtection20160801",
+              "Sid": "EnforceInfrastructureProtection20160801",
               "Effect": "Deny",
               "Action": [
                 "ec2:DeleteVpc*",
@@ -122,7 +127,7 @@
                 "ec2:ReplaceRoute*",
                 "ec2:DeleteSubnet"
               ],
-              "Resource": { "Fn::Join" : ["", ["arn:aws:ec2:", { "Fn::FindInMap" : [ "Enviroments", "regions", {"Ref": "Environment"}]}, {"Ref": "AWS::AccountId"} , ":*" ]]}
+              "Resource": "*"
             },
             {
               "Sid": "ProtectCriticalInstances20160801",
@@ -135,7 +140,7 @@
                 "ec2:*NetworkInterface*",
                 "ec2:*PrivateIp*"
               ],
-              "Resource": { "Fn::Join" : ["", ["arn:aws:ec2:", { "Fn::FindInMap" : [ "Enviroments", "regions", {"Ref": "Environment"}]}, {"Ref": "AWS::AccountId"} , ":*" ]]},
+              "Resource": "*",
               "Condition": {
                 "StringEquals": {
                   "ec2:ResourceTag/Critical":"true"
@@ -154,30 +159,16 @@
                       "aws:MultiFactorAuthPresent": "false"
                   }
               }
-            },
-            {
-              "Sid": "ProtectObjects20160801",
-              "Effect": "Deny",
-              "Action": [
-                "s3:DeleteObject*"
-              ],
-              "Resource": "*",
-              "Condition": {
-                  "NotIpAddress": {
-                      "aws:SourceIp": "111.222.32.0/20"
-                  }
-              }
             }
           ]
         }
       }
     },
 
-
-
     "EnforceMFAPolicy": {
     "Type": "AWS::IAM::ManagedPolicy",
     "Properties": {
+    "ManagedPolicyName" : "EnforceMFAforDistructiveAndSensetiveActions",
     "Description" : "Block distructive actions without MFA device",
     "Path" : "/infosec/policy/",
     "PolicyDocument" :{
@@ -214,10 +205,12 @@
     }
       }
     },
+
     "EnforceAccessFromOfficePolicy": {
     "Type": "AWS::IAM::ManagedPolicy",
     "Properties": {
-    "Description" : "Block privilige actions outside of YourCompany  subnet",
+    "ManagedPolicyName" : "EnforceWorkingFromOffice4SensitiveActions",
+    "Description" : "Block privilige actions outside of Company's owned subnets",
     "Path" : "/infosec/policy/",
     "PolicyDocument" :{
         "Version": "2012-10-17",
@@ -254,10 +247,12 @@
     }
       }
     },
-    "InfosecTeamPolicy": {
+
+  "InfosecTeamPolicy": {
   "Type": "AWS::IAM::ManagedPolicy",
   "Properties": {
-    "Description" : "Infosec managed policy that gives YourCompany Infosec additional permissions compare to default Read-Only access",
+    "ManagedPolicyName" : "InfosecTeamPolicy",
+    "Description" : "Infosec managed policy that gives Infosec additional permissions compare to default Read-Only access",
     "Path" : "/infosec/policy/",
     "PolicyDocument" : {
      "Version": "2012-10-17",
@@ -482,17 +477,21 @@
 }
     }
   },
+
 "InfosecGroup": {
    "Type": "AWS::IAM::Group",
    "DependsOn": ["InfosecTeamPolicy","UserSelfServicePolicy"],
    "Properties": {
+      "GroupName": "Infosec",
       "ManagedPolicyArns": [ {"Ref": "InfosecTeamPolicy"}, {"Ref": "UserSelfServicePolicy"}, "arn:aws:iam::aws:policy/ReadOnlyAccess" ],
       "Path": "/infosec/groups/"
    }
 },
+
 "DevOpsPolicy": {
 "Type": "AWS::IAM::ManagedPolicy",
 "Properties": {
+"ManagedPolicyName" : "LimidedAccess4DevOps",
 "Description" : "DevOps managed policy that gives additional permissions compare to default Power user access",
 "Path" : "/infosec/policy/",
 "PolicyDocument" :{
@@ -522,97 +521,17 @@
    "Type": "AWS::IAM::Group",
    "DependsOn": ["DevOpsPolicy","UserSelfServicePolicy", "ProtectProdEnviroment"],
    "Properties": {
+      "GroupName": "DevOps",
       "ManagedPolicyArns": [ {"Ref": "DevOpsPolicy"}, {"Ref": "UserSelfServicePolicy"}, {"Ref": "ProtectProdEnviroment"}, "arn:aws:iam::aws:policy/PowerUserAccess" ],
       "Path": "/infosec/groups/"
    }
 },
-"DBAPolicy": {
-"Type": "AWS::IAM::ManagedPolicy",
-"Properties": {
-"Description" : "DB managed policy that gives additional permissions compare to default read only access",
-"Path" : "/infosec/policy/",
-"PolicyDocument" :{
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-  "Sid": "AllRds2016",
-  "Effect": "Allow",
-  "Action": [
-      "sns:*",
-      "rds:AddTagsToResource",
-      "rds:AddSourceIdentifierToSubscription",
-      "rds:ApplyPendingMaintenanceAction",
-      "rds:AuthorizeDBSecurityGroupIngress",
-      "rds:CopyDBParameterGroup",
-      "rds:CopyDBSnapshot",
-      "rds:CopyOptionGroup",
-      "rds:CreateDBInstance",
-      "rds:CreateDBInstanceReadReplica",
-      "rds:CreateDBParameterGroup",
-      "rds:CreateDBSecurityGroup",
-      "rds:CreateDBSnapshot",
-      "rds:CreateEventSubscription",
-      "rds:CreateOptionGroup",
-      "rds:DeleteDBInstance",
-      "rds:DeleteDBParameterGroup",
-      "rds:DeleteDBSecurityGroup",
-      "rds:DeleteDBSnapshot",
-      "rds:DeleteEventSubscription",
-      "rds:DeleteOptionGroup",
-      "rds:DescribeEngineDefaultParameters",
-      "rds:DescribeDBInstances",
-      "rds:DescribeDBLogFiles",
-      "rds:DescribeDBParameterGroups",
-      "rds:DescribeDBParameters",
-      "rds:DescribeDBSecurityGroups",
-      "rds:DescribeDBSnapshots",
-      "rds:DescribeDBEngineVersions",
-      "rds:DescribeDBSubnetGroups",
-      "rds:DescribeEventCategories",
-      "rds:DescribeEvents",
-      "rds:DescribeEventSubscriptions",
-      "rds:DescribeOptionGroups",
-      "rds:DescribeOptionGroupOptions",
-      "rds:DescribeOrderableDBInstanceOptions",
-      "rds:DescribePendingMaintenanceActions",
-      "rds:DescribeReservedDBInstances",
-      "rds:DescribeReservedDBInstancesOfferings",
-      "rds:DownloadDBLogFilePortion",
-      "rds:ListTagsForResource",
-      "rds:ModifyDBInstance",
-      "rds:ModifyDBParameterGroup",
-      "rds:ModifyEventSubscription",
-      "rds:ModifyOptionGroup",
-      "rds:PromoteReadReplica",
-      "rds:PurchaseReservedDBInstancesOffering",
-      "rds:RebootDBInstance",
-      "rds:RemoveSourceIdentifierFromSubscription",
-      "rds:RemoveTagsFromResource",
-      "rds:RestoreDBInstanceFromDBSnapshot",
-      "rds:RestoreDBInstanceToPointInTime",
-      "rds:ResetDBParameterGroup",
-      "rds:RevokeDBSecurityGroupIngress"
-  ],
-  "Resource": [
-      "*"
-  ]
-}
-    ]
-}
-  }
-},
-"DBAGroup": {
-   "Type": "AWS::IAM::Group",
-   "DependsOn": ["DBAPolicy","UserSelfServicePolicy"],
-   "Properties": {
-      "ManagedPolicyArns": [ {"Ref": "DBAPolicy"}, {"Ref": "UserSelfServicePolicy"}, "arn:aws:iam::aws:policy/ReadOnlyAccess" ],
-      "Path": "/infosec/groups/"
-   }
-},
+
 
 "DomainJoin": {
 "Type": "AWS::IAM::Role",
 "Properties": {
+  "RoleName": "DomainJoinRole",
   "AssumeRolePolicyDocument": {
     "Version" : "2012-10-17",
            "Statement": [ {
@@ -631,16 +550,18 @@
 "DomainJoinInstanceProfile" : {
     "Type" : "AWS::IAM::InstanceProfile",
     "Properties" : {
+      "InstanceProfileName": "DomainJoinInstanceProfile",
       "Path" : "/infosec/services/",
       "Roles" : [{ "Ref": "DomainJoin" }]
     }
 },
 
-"SaltMasterPolicy": {
-"DependsOn": ["DomainJoin", "SQLDataBaseInstanceRole"],
+"ChefServerPolicy": {
+"DependsOn": ["DomainJoin"],
 "Type": "AWS::IAM::ManagedPolicy",
 "Properties": {
-"Description" : "SaltMaster policy",
+"ManagedPolicyName" : "ChefServerPolicy",
+"Description" : "Automation MasterServer Policy",
 "Path" : "/infosec/policy/",
 "PolicyDocument" :{
   "Version": "2012-10-17",
@@ -652,10 +573,8 @@
               "iam:PassRole",
               "iam:ListInstanceProfiles"
           ],
-          "Resource": [{"Fn::GetAtt" : ["DomainJoin", "Arn"]},
-                       {"Fn::GetAtt" : ["SQLDataBaseInstanceRole", "Arn"] }
-                     ]
-      },
+          "Resource": [{"Fn::GetAtt" : ["DomainJoin", "Arn"]}]
+                                              },
       {
           "Sid": "AllForSSM2016",
           "Effect": "Allow",
@@ -678,17 +597,19 @@
               "codecommit:List*",
               "codecommit:Update*"
     ],
-          "Resource": { "Fn::Join" : ["", ["arn:aws:codecommit:us-east-1:", {"Ref": "AWS::AccountId"} , ":salt*" ]]}
+          "Resource": { "Fn::Join" : ["", ["arn:aws:codecommit:us-east-1:", {"Ref": "AWS::AccountId"} , ":chef*" ]]}
 }
 
   ]
 }
   }
 },
-"SaltMaster": {
+
+"ChefServer": {
 "Type": "AWS::IAM::Role",
-"DependsOn": [ "SaltMasterPolicy"],
+"DependsOn": [ "ChefServerPolicy"],
 "Properties": {
+  "RoleName": "ChefServerRole",
   "AssumeRolePolicyDocument": {
     "Version" : "2012-10-17",
            "Statement": [ {
@@ -700,53 +621,35 @@
            } ]
 },
   "Path": "/infosec/services/",
-  "ManagedPolicyArns" : [{"Ref": "SaltMasterPolicy"}, "arn:aws:iam::aws:policy/AmazonEC2FullAccess"]
+  "ManagedPolicyArns" : [{"Ref": "ChefServerPolicy"}, "arn:aws:iam::aws:policy/AmazonEC2FullAccess"]
 }
 },
-"SaltMasterInstanceProfile" : {
+
+"ChefServerInstanceProfile" : {
     "Type" : "AWS::IAM::InstanceProfile",
     "Properties" : {
+      "InstanceProfileName": "ChefServerInstanceProfile",
       "Path" : "/infosec/services/",
-      "Roles" : [{ "Ref": "SaltMaster" }]
+      "Roles" : [{ "Ref": "ChefServer" }]
     }
 },
 
 
-"SQLDataBaseInstancePolicy": {
+"SplunkAccessPolicy": {
 "Type": "AWS::IAM::ManagedPolicy",
 "Properties": {
-"Description" : "SQL DataBase Instance policy",
+"ManagedPolicyName" : "SplunkAccessPolicy",
+"Description" : "Splunk systems access policy",
 "Path" : "/infosec/policy/",
 "PolicyDocument" :{
   "Version": "2012-10-17",
   "Statement": [
-    { "Sid": "ListDBbucket2016",
-      "Effect": "Allow",
-      "Action": [ "s3:ListBucket" ],
-      "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::com-ChangeMe-", {"Ref": "Environment"} , "-sqldb" ]]} },
-    { "Sid": "WorkWithDBbucket2016",
-      "Effect": "Allow",
-      "Action": [ "s3:DeleteObject", "s3:GetBucketLocation", "s3:GetObject", "s3:PutObject" ],
-      "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::com-ChangeMe-", {"Ref": "Environment"} , "-sqldb/*" ]]} }
-  ]
-}
-  }
-},
-
-"SIEMAccessPolicy": {
-"Type": "AWS::IAM::ManagedPolicy",
-"Properties": {
-"Description" : "SIEM systems access policy",
-"Path" : "/infosec/policy/",
-"PolicyDocument" :{
-  "Version": "2012-10-17",
-  "Statement": [
-    { "Sid": "SIEMtoSQS",
+    { "Sid": "SplunktoSQS",
       "Effect": "Allow",
       "Action": [  "sqs:ListQueues", "sqs:ReceiveMessage", "sqs:GetQueueAttributes", "sqs:SendMessage", "sqs:GetQueueUrl", "sqs:DeleteMessage" ],
       "Resource":  [{"Ref": "SQSCloudTrailArn" } , {"Ref": "SQSAWSConfigArn" }]
     },
-    { "Sid": "SIEMtoAWSConfig",
+    { "Sid": "SplunktoAWSConfig",
       "Effect": "Allow",
       "Action": [ "config:DeliverConfigSnapshot" ],
       "Resource": "*"
@@ -756,9 +659,36 @@
   }
 },
 
+
+"ITOrganizationAccountAccessRole": {
+"Type": "AWS::IAM::Role",
+"Properties": {
+   "RoleName": "ITOrganizationAccountAccessRole",
+   "AssumeRolePolicyDocument": {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": { "Fn::Join" : ["", ["arn:aws:iam::", {"Ref": "MasterAccount"} , ":root" ]]}
+      },
+      "Action": "sts:AssumeRole",
+      "Condition": {
+        "Bool": {
+          "aws:MultiFactorAuthPresent": "true"
+        }
+      }
+    }
+  ]
+},
+   "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/AdministratorAccess" ]
+}
+},
+
 "VPCFlowLogRole": {
 "Type": "AWS::IAM::Role",
 "Properties": {
+   "RoleName": "VPCFlowLogRole",
    "AssumeRolePolicyDocument": {
      "Version" : "2012-10-17",
             "Statement": [ {
@@ -790,41 +720,10 @@
 }
 },
 
-
-
-"SQLDataBaseInstanceRole": {
-"Type": "AWS::IAM::Role",
-"DependsOn": ["SQLDataBaseInstancePolicy"],
-"Properties": {
-  "AssumeRolePolicyDocument": {
-    "Version" : "2012-10-17",
-           "Statement": [ {
-              "Effect": "Allow",
-              "Principal": {
-                 "Service": [ "ec2.amazonaws.com" ]
-              },
-              "Action": [ "sts:AssumeRole" ]
-           } ]
-},
-  "Path": "/infosec/services/",
-  "ManagedPolicyArns" : [{"Ref": "SQLDataBaseInstancePolicy"}]
-}
-},
-
-
-
-"SQLDataBaseInstanceProfile" : {
-    "Type" : "AWS::IAM::InstanceProfile",
-    "Properties" : {
-      "Path" : "/infosec/services/",
-      "Roles" : [{ "Ref": "SQLDataBaseInstanceRole" }]
-    }
-},
-
-
 "SuperAdminGroup": {
    "Type": "AWS::IAM::Group",
    "Properties": {
+      "GroupName": "SuperAdminGroup",
       "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/AdministratorAccess" ],
       "Path": "/infosec/groups/"
    }
@@ -833,27 +732,29 @@
 "ServiceAccountsGroup": {
    "Type": "AWS::IAM::Group",
    "Properties": {
+      "GroupName": "ServiceAccountsGroup",
       "Path": "/infosec/groups/"
    }
 },
 
 
-"SIEMUser": {
+"SplunkUser": {
    "Type": "AWS::IAM::User",
-   "DependsOn": ["ServiceAccountsGroup", "SIEMAccessPolicy"],
+   "DependsOn": ["ServiceAccountsGroup", "SplunkAccessPolicy"],
    "Properties": {
+      "UserName": "SplunkUser",
       "Groups": [ { "Ref": "ServiceAccountsGroup" }],
-      "ManagedPolicyArns": [ {"Ref": "SIEMAccessPolicy"}, "arn:aws:iam::aws:policy/ReadOnlyAccess" ],
+      "ManagedPolicyArns": [ {"Ref": "SplunkAccessPolicy"}, "arn:aws:iam::aws:policy/ReadOnlyAccess" ],
       "Path": "/infosec/serviceaccounts/"
    }
 },
-"SIEMUserKey": {
+"SplunkUserKey": {
    "Type": "AWS::IAM::AccessKey",
-   "DependsOn": ["SIEMUser"],
+   "DependsOn": ["SplunkUser"],
    "Properties": {
       "Serial": 1,
       "Status": "Active",
-      "UserName": { "Ref": "SIEMUser" }
+      "UserName": { "Ref": "SplunkUser" }
    }
 },
 
@@ -861,6 +762,7 @@
    "Type": "AWS::IAM::User",
    "DependsOn": ["ServiceAccountsGroup"],
    "Properties": {
+      "UserName": "SMTPUser",
       "Groups": [ { "Ref": "ServiceAccountsGroup" }],
       "Path": "/infosec/serviceaccounts/",
       "Policies" : [{ "PolicyName": "SMTPUser", "PolicyDocument": {
@@ -891,6 +793,15 @@
 
   },
   "Outputs" : {
+
+    "SplunkUserAccessKeyId" : {
+      "Description": "SplunkUser AccessKeyId",
+      "Value" : {"Ref": "SplunkUserKey"}
+    },
+    "SplunkUserSecretKey" : {
+      "Description": "SplunkMUser Secret Key",
+      "Value" : {"Fn::GetAtt":["SplunkUserKey","SecretAccessKey"]}
+    },
 
     "SMTPUserAccessKeyId" : {
       "Description": "SMTPUser AccessKeyId",
