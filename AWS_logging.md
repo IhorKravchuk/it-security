@@ -105,10 +105,176 @@ official doc (missing a lot of services): https://aws.amazon.com/answers/logging
 * Retention capabilities:
     * S3 -indefinite time/user defined
 
+## Elastic Load Balancer(ELB) logs (classic)
+* Log coverage:
+    * access logs capture detailed information about requests sent to your load balancer. Each log contains information such as the time the request was received, the client's IP address, latencies, request paths, and server responses
+    * https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html
+* Exceptions and Limits:
+    * Note: Elastic Load Balancing logs requests sent to the load balancer, including requests that never made it to the back-end instances
+​
+    * Limits: Elastic Load Balancing logs requests on a best-effort basis. We recommend that you use access logs to understand the nature of the requests, not as a complete accounting of all requests.
+* Log record/file format:
+    * Each log entry contains the details of a single request made to the load balancer. All fields in the log entry are delimited by spaces.
+    * Format:
+        1. timestamp
+        2. elb client:port
+        3. backend:port
+        4. request_processing_time
+        5.  backend_processing_time
+        6. response_processing_time
+        7. elb_status_code
+        8. backend_status_code
+        9. received_bytes
+        10. sent_bytes
+        11. "request"
+        12. "user_agent"
+        13. ssl_cipher
+        14. ssl_protocol
+* Delivery latency:
+    * User defined publishing interval
+    (5 min-60 min)
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * S3 bucket
+* Encryption at rest:
+    * * S3 - AES256, S3 SSE with amazon keys
+* Data residency(AWS Region):
+    * As per S3 bucket location
+* Retention capabilities:
+    * S3 -indefinite time/user defined
 
+## Network Load Balancer(NLB) Logs	
+* Log coverage:
+    * Access logs that capture detailed information about the TLS requests sent to your Network Load Balancer.
+    * https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html
 
+* Exceptions and Limits:
+    * Access logs are created only if the load balancer has a TLS listener and they contain information only about TLS requests.
+* Log record/file format:
+    * All fields are delimited by spaces. When new fields are introduced, they are added to the end of the log entry.
+* Delivery latency:
+    * each 5 min
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * S3 bucket
+* Encryption at rest:
+    * * S3 - AES256, S3 SSE with amazon keys
+* Data residency(AWS Region):
+    * As per S3 bucket location
+* Retention capabilities:
+    * S3 -indefinite time/user defined
 
+## Application Load Balancer(ALB) logs	
+* Log coverage:
+    * Access Log capture detailed information about requests sent to your load balancer. Each log contains information such as the time the request was received, the client's IP address, latencies, request paths, and server responses
+    * https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html
+* Exceptions and Limits:
+    * Note: Elastic Load Balancing does not log health check requests
+    * Limits: Elastic Load Balancing logs requests on a best-effort basis. We recommend that you use access logs to understand the nature of the requests, not as a complete accounting of all requests.
+* Log record/file format:
+    * Each log entry contains the details of a single request (or connection in the case of WebSockets) made to the load balancer. For WebSockets, an entry is written only after the connection is closed. If the upgraded connection can't be established, the entry is the same as for an HTTP or HTTPS request.
+    All fields are delimited by spaces. When new fields are introduced, they are added to the end of the log entry.
+* Delivery latency:
+    * each 5 min
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * S3 bucket
+* Encryption at rest:
+    * * S3 - AES256, S3 SSE with amazon keys
+* Data residency(AWS Region):
+    * As per S3 bucket location
+* Retention capabilities:
+    * S3 -indefinite time/user defined
 
+## Route53 DNS request
+* Log coverage:
+    * log information about the queries that Route 53 receives.
+The domain or subdomain that was requested
+The date and time of the request
+The DNS record type (such as A or AAAA)
+The Route 53 edge location that responded to the DNS query
+The DNS response code, such as NoError or ServFail
+* Exceptions and Limits:
+    * Query logging is available only for public hosted zones
+    * cached response will not be logged
+
+* Log record/file format:
+    * newline-delimited log records, Each log record represents one request and consists of space-delimited fields
+    * https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/query-logs.html#query-logs-format
+    * Fields:
+        1. Log format version
+        2. Query timestamp
+        3. Hosted zone ID
+        4. Query name
+        5. Query type
+        6. Response code
+        7. Layer 4 protocol
+        8. Route 53 edge location
+        9. Resolver IP address
+        10. EDNS client subnet
+* Delivery latency:
+    * N/A
+* Transport/Encryption in transit:
+* Supported log Destinations:
+    * CloudWatch Logs
+* Encryption at rest:
+    * As per CloudWatchLogs configuration
+* Data residency(AWS Region):
+    * US East (N. Virginia) Region
+* Retention capabilities:
+    * CloudWatch logs: indefinite time/user defined
+
+## Lambda
+* Log coverage:
+    * Lambda logs all requests handled by your function and also automatically stores logs generated by your code through Amazon CloudWatch Logs
+    * https://docs.aws.amazon.com/lambda/latest/dg/monitoring-functions-logs.html
+    * You can insert logging statements into your code to help you validate that your code is working as expected. Lambda automatically integrates with CloudWatch Logs and pushes all logs from your code to a CloudWatch Logs group associated with a Lambda function
+* Exceptions and Limits:
+* Log record/file format:
+    JSON?
+* Delivery latency:
+    * as per CloudWatchLogs
+* Transport/Encryption in transit:
+    * as per CloudWatchLogs
+* Supported log Destinations:
+    * CloudWatchLogs
+* Encryption at rest:
+    * as per CloudWatchLogs
+* Data residency(AWS Region):
+    * any region
+* Retention capabilities:
+    * CloudWatch logs: indefinite time/user defined
+
+## CloudFront Access Logs
+* Log coverage:
+    * Logs every user request that CloudFront receives. These access logs are available for both web and RTMP distributions
+    * https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html
+* Exceptions and Limits:
+    * Note, however, that some or all log file entries for a time period can sometimes be delayed by up to 24 hours
+* Log record/file format:
+    * Web Distribution Log File Format
+RTMP Distribution Log File Format
+Each entry in a log file gives details about a single user request. The log files for web and for RTMP distributions are not identical, but they share the following characteristics:
+Use the W3C extended log file format. (For more information, go to http://www.w3.org/TR/WD-logfile.html.)
+Contain tab-separated values.
+Contain records that are not necessarily in chronological order.
+Contain two header lines: one with the file-format version, and another that lists the W3C fields included in each record.
+Substitute URL-encoded equivalents for spaces and non-standard characters in field values.
+* Delivery latency:
+    * up to several times an hour 
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * S3 bucket
+* Encryption at rest:
+    * * S3 - AES256, S3 SSE with amazon keys
+* Data residency(AWS Region):
+    * As per S3 bucket location
+* Retention capabilities:
+    * S3 -indefinite time/user defined
 
 
 
