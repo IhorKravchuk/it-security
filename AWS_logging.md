@@ -276,6 +276,123 @@ Substitute URL-encoded equivalents for spaces and non-standard characters in fie
 * Retention capabilities:
     * S3 -indefinite time/user defined
 
+## Amazon Redshift Logs
+* Log coverage:
+    * Amazon Redshift logs information about connections and user activities in your database.
+    * https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html
+* Exceptions and Limits:
+* Log record/file format:
+    * Amazon Redshift logs information in the following log files:
+        1. Connection log — logs authentication attempts, and connections and disconnections.
+        2. User log — logs information about changes to database user definitions.
+        3. User activity log — logs each query before it is run on the database.
+​
+    * Logs format for each of the logs files can be found here: https://docs.aws.amazon.com/redshift/latest/mgmt/db-auditing.html#db-auditing-logs
+* Delivery latency:
+    * depends on the Redshift cluster load. More load - more often you get logs
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * S3 bucket
+* Encryption at rest:
+    * * S3 - AES256, S3 SSE with amazon keys
+* Data residency(AWS Region):
+    * As per S3 bucket location
+* Retention capabilities:
+    * S3 -indefinite time/user defined
+
+## Amazon RDS Database Log
+* Log coverage:
+    * Amazon RDS Database Logs are specific to the database engine:
+    * https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.html
+* Exceptions and Limits:
+* Log record/file format:
+    * DataBase engine specific:
+        1. MariaDB Database Log Files
+        2. Microsoft SQL Server Database Log Files
+        3. MySQL Database Log Files
+        4. Oracle Database Log Files
+        5. PostgreSQL Database Log Files
+* Delivery latency:
+    * DB engine specific
+* Transport/Encryption in transit:
+* Supported log Destinations:
+    * On DB servers itself
+    * CloudWatchLogs
+* Encryption at rest:
+    * As per DB instance encryption - AES-256 encryption
+    * As per CloudWatchLogs configuration
+* Data residency(AWS Region):
+* Retention capabilities:
+    * DB-stored logs retention depends on the Db engine (3-7 days)
+    * CloudWatch logs: indefinite time/user defined
+
+## Kinesis Data Firehose
+* Log coverage:
+    * Kinesis Data Firehose integrates with Amazon CloudWatch Logs so that you can view the specific error logs when the Lambda invocation for data transformation or data delivery fails
+    * https://docs.aws.amazon.com/firehose/latest/dev/monitoring-with-cloudwatch-logs.html
+* Exceptions and Limits:
+* Log record/file format:
+    * two log streams named S3Delivery and RedshiftDelivery: S3Delivery log stream is used for logging errors related to delivery failure to the intermediate S3 bucket. The RedshiftDelivery log stream is used for logging errors related to Lambda invocation failure and delivery failure to your Amazon Redshift cluster.
+    * Data Delivery Errors:
+        1. Amazon S3 Data Delivery Errors
+        2. Amazon Redshift Data Delivery Errors
+        3. Splunk Data Delivery Errors
+        4. Amazon Elasticsearch Service Data Delivery Errors
+        5. Lambda Invocation Errors
+* Delivery latency:
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * CloudWatch Logs
+* Encryption at rest:
+    * As per CloudWatchLogs configuration
+* Data residency(AWS Region):
+* Retention capabilities:
+    * CloudWatch logs: indefinite time/user defined
+
+## Amazon ECS (AWS Fargate)
+* Log coverage:
+    * You can configure the containers in your tasks to send log information to CloudWatch Logs. This allows you to view the logs from the containers in your Fargate tasks.
+    * https://docs.aws.amazon.com/AmazonECS/latest/userguide/using_awslogs.html
+* Exceptions and Limits:
+    * The type of information that is logged by your task's containers depends mostly on their ENTRYPOINT command. By default, the logs that are captured show the command output that you would normally see in an interactive terminal if you ran the container locally, which are the STDOUT and STDERR I/O streams.
+* Log record/file format:
+    * STDOUT and STDERR I/O streams
+* Delivery latency:
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * CloudWatch Logs
+* Encryption at rest:
+    * As per CloudWatchLogs configuration
+* Data residency(AWS Region):
+* Retention capabilities:
+    * CloudWatch logs: indefinite time/user defined
+
+## AWS WAF	
+* Log coverage:
+    * You can enable logging to get detailed information about traffic that is analyzed by your web ACL. Information that is contained in the logs include the time that AWS WAF received the request from your AWS resource, detailed information about the request, and the action for the rule that each request matched.
+    * https://docs.aws.amazon.com/waf/latest/developerguide/logging.html
+* Exceptions and Limits:
+* Log record/file format:
+    * json
+    * One AWS WAF log is equivalent to one Kinesis Data Firehose record.
+* Delivery latency:
+    * near real time
+* Transport/Encryption in transit:
+* Supported log Destinations:
+    * Amazon Kinesis Data Firehose
+* Encryption at rest:
+    * as for Amazon Kinesis Data Firehose
+* Data residency(AWS Region):
+    * as for Amazon Kinesis Data Firehose
+* Retention capabilities:
+    * as for Amazon Kinesis Data Firehose
+
+
+
+
 
 
 
