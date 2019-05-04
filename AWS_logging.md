@@ -458,21 +458,167 @@ Substitute URL-encoded equivalents for spaces and non-standard characters in fie
     * Instance lifetime
     * S3: indefinite time/user defined
 
+## Elastic Beanstalk
+* Log coverage:
+    * The Amazon EC2 instances in your Elastic Beanstalk environment generate logs that you can view to troubleshoot issues with your application or configuration files. Logs created by the web server, application server, Elastic Beanstalk platform scripts, and AWS CloudFormation are stored locally on individual instances
+    * https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/using-features.logging.html
+* Exceptions and Limits:
+* Log record/file format:
+    * These logs contain messages about deployment activities, including messages related to configuration files (.ebextensions).
+    * Linux
+        * /var/log/eb-activity.log
+        * /var/log/eb-commandprocessor.log
+        * /var/log/eb-version-deployment.log
+    * Windows Server
+        * C:\Program Files\Amazon\ElasticBeanstalk\logs\
+        * C:\cfn\logs\cfn-init.log
+    * Each application and web server stores logs in its own folder:
+        * Apache – /var/log/httpd/
+        * IIS – C:\inetpub\wwwroot\
+        * Node.js – /var/log/nodejs/
+        * nginx – /var/log/nginx/
+        * Passenger – /var/app/support/logs/
+        * Puma – /var/log/puma/
+        * Python – /opt/python/log/
+        * Tomcat – /var/log/tomcat8/
+* Delivery latency:
+    * as logs created - near real time
+* Transport/Encryption in transit:
+    * locally on the instance
+    * logrotate to S3
+* Supported log Destinations:
+    * instance
+    * CloudWatch Logs
+    * S3
+* Encryption at rest:
+    * Instance encryption
+    * As per CloudWatchLogs configuration (see below)
+    * AES256 Encryption: Amazon S3 server-side encryption (SSE)
+* Data residency(AWS Region):
+    * As per instance location
+    * any region
+    * As per S3 bucket location
+* Retention capabilities:
+    * Instance lifetime
+    * CloudWatch logs: indefinite time/user defined
+    * Elastic Beanstalk deletes tail and bundle logs from Amazon S3 automatically 15 minutes after they are created. Rotated logs persist.
+
+## OpsWorks
+* Log coverage:
+    * To simplify the process of monitoring logs on multiple instances, AWS OpsWorks Stacks supports Amazon CloudWatch Logs
+    * https://docs.aws.amazon.com/opsworks/latest/userguide/monitoring-cloudwatch-logs.html
+* Exceptions and Limits:
+* Log record/file format:
+    * OS/app specifi
+* Delivery latency:
+    * as per  AWS OpsWorks Stacks agent
+* Transport/Encryption in transit:
+    * internal to AWS, hopefully https
+* Supported log Destinations:
+    * CloudWatch Logs
+* Encryption at rest:
+    * As per CloudWatchLogs configuration
+* Data residency(AWS Region):
+* Retention capabilities:
+    * CloudWatch logs: indefinite time/user defined
+
+
+# AWS Built-in Centralized logging capabilities
+## Amazon CloudWatch Logs Service
+
+Amazon CloudWatch Logs could be used to monitor, store, and access your log files from Amazon Elastic Compute Cloud (Amazon EC2) instances, AWS CloudTrail, Route 53, and other sources. You can then retrieve the associated log data from CloudWatch Logs.
+https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html
+
+**Service coverage:**
+
+* Logs from Amazon EC2 Instances
+    * *Logs Retrieval:* AWS provide agent (several different version are available)
+    * *Delivery schedule:* as per agent settings
+    * *Data residency:* any region
+* Route 53 DNS Queries
+    * *Logs Retrieval:* Service push
+    * *Delivery schedule:*
+    * *Data residency:* 	US East (N. Virginia) Region only
+* VPC Flow Logs:
+    * *Logs Retrieval:* Service push: https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-cwl.html
+    * *Delivery schedule:* 
+    * *Data residency:* 
+* Lambda function Logs
+    * *Logs Retrieval:* Service push
+    * *Delivery schedule:* 
+    * *Data residency:* any aws region
+* Amazon RDS Database Log
+    * *Logs Retrieval:* Service push
+    * *Delivery schedule:* as per DB engine configuration
+    * *Data residency:* any aws region
+* Kinesis Data Firehose
+    * *Logs Retrieval:* Service push
+    * *Delivery schedule:* 
+    * *Data residency:* any aws region
+* Amazon ECS (AWS Fargate)
+    * *Logs Retrieval:* Service push
+    * *Delivery schedule:* 
+    * *Data residency:* any aws region
+* API Gateway
+    * *Logs Retrieval:* Service push
+    * *Delivery schedule:* 
+    * *Data residency:* any aws region
+* AWS Systems Manager
+    * *Logs Retrieval:* Agent push
+    * *Delivery schedule:* as per agent configuration
+    * *Data residency:* any aws region
+* Elastic Beanstalk
+    * *Logs Retrieval:* Agent push
+    * *Delivery schedule:* as per agent/service configuration
+    * *Data residency:* any aws region
+* OpsWorks
+    * *Logs Retrieval:* OpsWorks Stacks agent push
+    * *Delivery schedule:* as per agent configuration
+    * *Data residency:* any aws region
+* AWS Global Accelerator flow logs
+    * *Logs Retrieval:* Service push through s3 : https://docs.aws.amazon.com/global-accelerator/latest/dg/monitoring-global-accelerator.flow-logs.html#monitoring-global-accelerator.flow-logs-publishing-S3
+    * *Delivery schedule:* as per agent configuration
+    * *Data residency:* any aws region
+
+**Encryption at REST:**
+
+AWS Key Management Service (AWS KMS) key: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/encrypt-log-data-kms.html
+
+**Retention policy:**
+
+CloudWatch logs: logs are kept indefinitely and never expire. User can create retention policy per log group with following option: indefinite, or from 1 day to 10years 
+Data visualization and analyzes:
+CloudWatch Logs Insights: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/AnalyzingLogData.html
+Metric filters: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/MonitoringLogData.html
+
+**Notification and alerting:**
+
+CloudWatch Alarms: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html
+
+**Real time processing options:**
+Real-time Processing of Log Data with Subscriptions: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Subscriptions.html
+Supported AWS Services for the real time data processing: AWS Kinesis, Lambda
+
+**Data export and external tool integrations:**
+    * Export data to S3: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/S3Export.html
+    * Streaming data to the Amazon Elasticsearch Service: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_ES_Stream.html
+**Known limits:**
+
+Amazon CloudWatch Logs limits: https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/cloudwatch_limits_cwl.html
+
+**AWS recommended solutions/implementations**:
+
+https://aws.amazon.com/answers/logging/centralized-logging/
+​
 
 
 
 
 
 
+# Templates
 
-
-
-
-
-
-
-
-## Template:
+## Serice Template:
 * Log coverage:
 * Exceptions and Limits:
 * Log record/file format:
@@ -482,3 +628,8 @@ Substitute URL-encoded equivalents for spaces and non-standard characters in fie
 * Encryption at rest:
 * Data residency(AWS Region):
 * Retention capabilities:
+
+## Cloudwatchlogs service template
+* *Logs Retrieval:*
+* *Delivery schedule:*
+* *Data residency:*
