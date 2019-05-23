@@ -1,10 +1,9 @@
 # Native AWS logging capabilities
 official doc (missing a lot of services): https://aws.amazon.com/answers/logging/aws-native-security-logging-capabilities/
 
-[CloudTrail](#cloudtrail)
-
-[CloudWatch Logs](#cloudwatchlogs)
-
+* [CloudTrail](#cloudtrail)
+* [CloudWatch Logs](#cloudwatchlogs)
+* [VPC Flow Logs](#vpcflowlogs)
 
 ## <a name="cloudtrail"></a> CloudTrail
 * Log coverage: 
@@ -37,7 +36,7 @@ official doc (missing a lot of services): https://aws.amazon.com/answers/logging
     * S3 -indefinite time/user defined
     * CloudWatch Logs:  indefinitely and never expire. User can define retention policy per log group (indefinite, or from 1 day to 10years)
 
-## VPC Flow logs
+## <a name="vpcflowlogs"></a> VPC Flow logs
 * Log coverage:
     * VPC
     * Subnet
