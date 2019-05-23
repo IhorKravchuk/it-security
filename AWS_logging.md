@@ -1,7 +1,12 @@
 # Native AWS logging capabilities
 official doc (missing a lot of services): https://aws.amazon.com/answers/logging/aws-native-security-logging-capabilities/
 
-## CloudTrail
+[CloudTrail](#cloudtrail)
+
+[CloudWatch Logs](#cloudwatchlogs)
+
+
+## <a name="cloudtrail"></a> CloudTrail
 * Log coverage: 
     * all AWS API calls (covers web-ua, api or SDK actions)
     * List of the services covered by cloudtrail
@@ -524,7 +529,7 @@ Substitute URL-encoded equivalents for spaces and non-standard characters in fie
 
 
 # AWS Built-in Centralized logging capabilities
-## Amazon CloudWatch Logs Service
+## <a name="cloudwatchlogs"></a> Amazon CloudWatch Logs Service
 
 Amazon CloudWatch Logs could be used to monitor, store, and access your log files from Amazon Elastic Compute Cloud (Amazon EC2) instances, AWS CloudTrail, Route 53, and other sources. You can then retrieve the associated log data from CloudWatch Logs.
 https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html
