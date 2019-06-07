@@ -1,10 +1,14 @@
 # Native AWS logging capabilities
+
+Unofficial documentation on the AWS services logging capabilities. Structured and enhanced.
+
 official doc (missing a lot of services): https://aws.amazon.com/answers/logging/aws-native-security-logging-capabilities/
 
 * [CloudTrail](#cloudtrail)
 * [VPC Flow Logs](#vpcflowlogs)
 * [S3 Server Access Logs](#s3accesslogs)
-
+* [Elastic Load Balancer(ELB) logs (classic)](#elblogs)
+* [Network Load Balancer(NLB) logs](#nlblogs)
 
 
 
@@ -143,7 +147,7 @@ official doc (missing a lot of services): https://aws.amazon.com/answers/logging
 * Retention capabilities:
     * S3 -indefinite time/user defined
 
-## Elastic Load Balancer(ELB) logs (classic)
+## <a name="elblogs"></a>Elastic Load Balancer(ELB) logs (classic)
 * Log coverage:
     * access logs capture detailed information about requests sent to your load balancer. Each log contains information such as the time the request was received, the client's IP address, latencies, request paths, and server responses
     * https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/access-log-collection.html
@@ -182,7 +186,7 @@ official doc (missing a lot of services): https://aws.amazon.com/answers/logging
 * Retention capabilities:
     * S3 -indefinite time/user defined
 
-## Network Load Balancer(NLB) Logs	
+## <a name="nlblogs"></a> Network Load Balancer(NLB) Logs	
 * Log coverage:
     * Access logs that capture detailed information about the TLS requests sent to your Network Load Balancer.
     * https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html
@@ -191,6 +195,26 @@ official doc (missing a lot of services): https://aws.amazon.com/answers/logging
     * Access logs are created only if the load balancer has a TLS listener and they contain information only about TLS requests.
 * Log record/file format:
     * All fields are delimited by spaces. When new fields are introduced, they are added to the end of the log entry.
+    * Log file name format: *bucket[/prefix]/AWSLogs/aws-account-id/elasticloadbalancing/region/yyyy/mm/dd/aws-account-id_elasticloadbalancing_region_load-balancer-id_end-time_random-string.log.gz*
+    * Access log fields:
+        * type: The type of listener. The supported value is tls.
+        * version: The version of the log entry. The supported version is 1.0.
+        * timestamp: The timestamp recorded at the end of the TLS connection, in ISO 8601 format.
+        * elb: The resource ID of the load balancer.
+        * listener: The resource ID of the TLS listener for the connection.
+        * client:port : The IP address and port of the client.
+        * listener:port : The IP address and port of the listener.
+        * connection_time: The total time for the connection to complete, from start to closure, in milliseconds.
+        * tls_handshake_time: The total time for the TLS handshake to complete after the TCP connection is established, including client-side delays, in milliseconds. This time is included in the connection_time field.
+        * received_bytes: The count of bytes received by the load balancer from the client, after decryption.
+        * sent_bytes: The count of bytes sent by the load balancer to the client, before encryption.
+        * incoming_tls_alert: The integer value of TLS alerts received by the load balancer from the client, if present. Otherwise, this value is set to -.
+        * chosen_cert_arn: The ARN of the certificate served to the client. If no valid client hello message is sent, this value is set to -.
+        * chosen_cert_serial: Reserved for future use. This value is always set to -.
+        * tls_cipher: The cipher suite negotiated with the client, in OpenSSL format. If TLS negotiation does not complete, this value is set to -.
+        * tls_protocol_version: The TLS protocol negotiated with the client, in string format. The possible values are tlsv10, tlsv11, and tlsv12. If TLS negotiation does not complete, this value is set to -.
+        * tls_named_group: Reserved for future use. This value is always set to -.
+        * domain_name: The value of the server_name extension in the client hello message. This value is URL-encoded. If no valid client hello message is sent or the extension is not present, this value is set to -.
 * Delivery latency:
     * each 5 min
 * Transport/Encryption in transit:
@@ -201,6 +225,7 @@ official doc (missing a lot of services): https://aws.amazon.com/answers/logging
     * * S3 - AES256, S3 SSE with amazon keys
 * Data residency(AWS Region):
     * As per S3 bucket location
+    * The bucket must be located in the same region as the load balancer.
 * Retention capabilities:
     * S3 -indefinite time/user defined
 
